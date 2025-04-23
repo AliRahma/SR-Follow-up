@@ -90,9 +90,21 @@ if uploaded_file:
             df_display = df_display[df_display['Ticket Number'] == search_number]
 
         # SR vs Incident count table
-        st.subheader("📊 SR vs Incident Count")
-        type_summary = df_filtered['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
-        st.table(type_summary)
+        # SR vs Incident count table
+        st.subheader("📊 Summary Counts")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**🔹 SR vs Incident Count**")
+            type_summary = df_filtered['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
+            st.table(type_summary)
+
+        with col2:
+            st.markdown("**🔸 Triage Status Count**")
+            triage_summary = df_filtered['Status'].value_counts().rename_axis('Triage Status').reset_index(name='Count')
+            triage_summary = triage_summary[triage_summary['Triage Status'].isin(['Pending SR/Incident', 'Not Triaged'])]
+            st.table(triage_summary)
 
         # Final result table
         st.subheader("📋 Filtered Results")
