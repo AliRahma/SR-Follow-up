@@ -98,7 +98,8 @@ if uploaded_file:
         with col2:
             st.markdown("**🔹 SR vs Incident Count**")
             type_summary = df_filtered['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
-            st.table(type_summary)
+            type_total = pd.DataFrame([{'Type': 'Total', 'Count': type_summary['Count'].sum()}])
+            st.table(pd.concat([type_summary, type_total], ignore_index=True))
 
         with col1:
             st.markdown("**🔸 Triage Status Count**")
