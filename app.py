@@ -72,7 +72,7 @@ if uploaded_file:
                     ).rename(columns={'Status': 'SR Status', 'LastModDateTime': 'Last Update'})
 
                     df_display.update(df_merged)
-
+                    st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
                     # Reorder columns
                     front_cols = ['Type', 'Ticket Number']
                     if 'SR Status' in df_display.columns and 'Last Update' in df_display.columns:
