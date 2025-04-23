@@ -107,14 +107,10 @@ if uploaded_file:
         summary = df_display['Status'].value_counts().rename_axis('Status').reset_index(name='Count')
         st.table(summary)
 
-        # ➕ New: SR vs Incident Count Chart
+        # ➕ Updated: SR vs Incident Count Table
         st.subheader("📊 SR vs Incident Count")
-        type_count = df_filtered['Type'].value_counts()
-        fig, ax = plt.subplots()
-        ax.bar(type_count.index, type_count.values, color=['skyblue', 'orange'])
-        ax.set_ylabel("Count")
-        ax.set_title("Count of SRs and Incidents")
-        st.pyplot(fig)
+        type_summary = df_filtered['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
+        st.table(type_summary)
 
         # ➕ New: Search bar for Ticket Numbers
         search_term = st.text_input("🔎 Search by Ticket Number (SR/Incident)")
