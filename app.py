@@ -86,9 +86,10 @@ if uploaded_file:
 
                     other_cols = [col for col in df_display.columns if col not in front_cols]
                     df_display = df_display[front_cols + other_cols]
-
+                    st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
             except Exception as e:
                 st.error(f"Error processing SR Status file: {e}")
+                st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
 
         # Summary
         st.subheader("📊 Summary")
