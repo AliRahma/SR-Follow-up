@@ -62,8 +62,14 @@ if uploaded_file:
                 is_sr = df_display['Type'] == "SR"
                 df_sr_only = df_display[is_sr].copy()
 
-                df_sr_only = df_sr_only.merge(
-                    sr_df[['Ticket Number', 'Status', 'LastModDateTime']],
+                # Make sure required columns exist
+                required_cols = ['Ticket Number', 'Status', 'LastModDateTime']
+                missing = [col for col in required_cols if col not in sr_df.columns]
+                if missing:
+                    st.error(f"Missing column(s) in SR Status file: {', '.join(missing)}")
+                else:
+                    df_sr_only = df_sr_only.merge(
+                    sr_df[required_cols],
                     on='Ticket Number', how='left'
                 ).rename(columns={'Status': 'SR Status', 'LastModDateTime': 'Last Update'})
 
