@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # Page setup
 st.set_page_config(page_title="Excel Incident Analyzer", layout="wide")
-st.title("📊 Excel Incident Analyzer")
+st.title("📊 SR Analyzer")
 
 # Upload main Excel file
 uploaded_file = st.sidebar.file_uploader("Upload your Excel file (.xlsx)", type="xlsx")
