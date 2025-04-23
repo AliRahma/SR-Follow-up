@@ -105,13 +105,15 @@ if uploaded_file:
             st.markdown("**🔸 Triage Status Count**")
             triage_summary = df_filtered['Status'].value_counts().rename_axis('Triage Status').reset_index(name='Count')
             triage_summary = triage_summary[triage_summary['Triage Status'].isin(['Pending SR/Incident', 'Not Triaged'])]
-            st.table(triage_summary)
+            triage_total = pd.DataFrame([{'Triage Status': 'Total', 'Count': triage_summary['Count'].sum()}])
+            st.table(pd.concat([triage_summary, triage_total], ignore_index=True))
 
         with col3:
             st.markdown("**🟢 SR Status Count**")
             if 'SR Status' in df_filtered.columns:
                 sr_status_summary = df_filtered['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Count')
-                st.table(sr_status_summary)
+                sr_status_total = pd.DataFrame([{'SR Status': 'Total', 'Count': sr_status_summary['Count'].sum()}])
+                st.table(pd.concat([sr_status_summary, sr_status_total], ignore_index=True))
             else:
                 st.info("Upload SR Status file to view this summary.")
         # Final result table
