@@ -11,6 +11,9 @@ st.title("📊 SR Analyzer")
 uploaded_file = st.sidebar.file_uploader("📂 Upload Main Excel File (.xlsx)", type="xlsx")
 sr_status_file = st.sidebar.file_uploader("📂 Upload SR Status Excel (optional)", type="xlsx")
 
+# Initialize filter variable
+sr_status_filter = None
+
 if uploaded_file:
     try:
         df = pd.read_excel(uploaded_file)
@@ -31,32 +34,14 @@ if uploaded_file:
             match = re.search(r'(tkt|sr|inc|ticket|مرجعي|incident|اس ار|انسدنت)[\s\S]{0,50}?(\d{4,})', note_lower)
             if match:
                 ticket_num = int(match.group(2))
-                return "Pending SR/Incident", ticket_num, "SR" if 15000 <= ticket_num <= 16000 else "Incident"
+                return "Pending SR/Incident", ticket_num, "SR" if 14000 <= ticket_num <= 16000 else "Incident"
             return "Not Triaged", None, None
 
         df_filtered[['Status', 'Ticket Number', 'Type']] = df_filtered[note_col].apply(
             lambda x: pd.Series(classify_and_extract(x))
         )
 
-        # Sidebar filters
-        st.sidebar.markdown("---")
-        status_filter = st.sidebar.selectbox("📌 Filter by Triage Status", ["All"] + df_filtered["Status"].dropna().unique().tolist())
-        type_filter = st.sidebar.selectbox("📌 Filter by Type", ["All", "SR", "Incident"])
-
-        df_display = df_filtered.copy()
-        if status_filter != "All":
-            df_display = df_display[df_display["Status"] == status_filter]
-        if type_filter != "All":
-            df_display = df_display[df_display["Type"] == type_filter]
-
-        # Search
-        st.subheader("🔎 Search for Ticket Number")
-        search_input = st.text_input("Enter SR or Incident Number (e.g., 15023):")
-        if search_input.isdigit():
-            search_number = int(search_input)
-            df_display = df_display[df_display['Ticket Number'] == search_number]
-
-        # Add SR Status from second Excel if uploaded
+        # Merge SR status if uploaded
         if sr_status_file:
             try:
                 sr_df = pd.read_excel(sr_status_file)
@@ -68,16 +53,41 @@ if uploaded_file:
                     'LastModDateTime': 'Last Update'
                 })
 
-                df_display['Ticket Number'] = df_display['Ticket Number'].astype("Int64")
-                df_display = df_display.merge(
+                df_filtered['Ticket Number'] = df_filtered['Ticket Number'].astype("Int64")
+                df_filtered = df_filtered.merge(
                     sr_df[['Service Request', 'SR Status', 'Last Update']],
                     how='left',
                     left_on='Ticket Number',
                     right_on='Service Request'
                 ).drop(columns=['Service Request'])
 
+                # Add SR Status filter to sidebar
+                st.sidebar.markdown("---")
+                sr_status_options = df_filtered['SR Status'].dropna().unique().tolist()
+                sr_status_filter = st.sidebar.selectbox("📌 Filter by SR Status", ["All"] + sr_status_options)
+
             except Exception as e:
                 st.error(f"Error merging SR Status file: {e}")
+
+        # Other sidebar filters
+        st.sidebar.markdown("---")
+        status_filter = st.sidebar.selectbox("📌 Filter by Triage Status", ["All"] + df_filtered["Status"].dropna().unique().tolist())
+        type_filter = st.sidebar.selectbox("📌 Filter by Type", ["All", "SR", "Incident"])
+
+        df_display = df_filtered.copy()
+        if status_filter != "All":
+            df_display = df_display[df_display["Status"] == status_filter]
+        if type_filter != "All":
+            df_display = df_display[df_display["Type"] == type_filter]
+        if sr_status_filter and sr_status_filter != "All":
+            df_display = df_display[df_display["SR Status"] == sr_status_filter]
+
+        # Search
+        st.subheader("🔎 Search for Ticket Number")
+        search_input = st.text_input("Enter SR or Incident Number (e.g., 15023):")
+        if search_input.isdigit():
+            search_number = int(search_input)
+            df_display = df_display[df_display['Ticket Number'] == search_number]
 
         # SR vs Incident count table
         st.subheader("📊 SR vs Incident Count")
@@ -114,17 +124,3 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"Something went wrong: {e}")
-
-# SR Status file separate display
-if sr_status_file:
-    try:
-        sr_df = pd.read_excel(sr_status_file)
-        st.subheader("📋 SR Status File Results")
-        required_cols = ['Service Request', 'Status', 'LastModDateTime']
-        missing = [col for col in required_cols if col not in sr_df.columns]
-        if missing:
-            st.error(f"Missing column(s) in SR Status file: {', '.join(missing)}")
-        else:
-            st.dataframe(sr_df[required_cols])
-    except Exception as e:
-        st.error(f"Error processing SR Status file: {e}")
