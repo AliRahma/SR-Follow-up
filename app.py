@@ -4,7 +4,7 @@ import re
 
 # Page setup
 st.set_page_config(page_title="Excel Incident Analyzer", layout="wide")
-st.title("📊 Excel Incident Analyzer")
+st.title("📊 Excel Intellipen Analyzer")
 
 # Sidebar filters
 st.sidebar.header("🔧 Filters")
@@ -15,12 +15,12 @@ if uploaded_file:
         # Read Excel file
         df = pd.read_excel(uploaded_file)
 
-        # Your actual column names
+        # Define columns
         user_col = 'Current User Id'
         note_col = 'Last Note'
         date_col = 'Case Start Date'
 
-        # Target users
+        # Filter for target users
         target_users = ['ali.babiker', 'anas.hasan', 'ahmed.mostafa']
         df_filtered = df[df[user_col].isin(target_users)].copy()
 
@@ -47,23 +47,29 @@ if uploaded_file:
             else:
                 return "Not Triaged", None, None
 
-        # Apply the function
+        # Apply function
         df_filtered[['Status', 'Type', 'Ticket Number']] = df_filtered[note_col].apply(
             lambda x: pd.Series(classify_and_extract(x))
         )
 
-        # Sidebar filter
+        # Sidebar filters
         type_filter = st.sidebar.selectbox(
-            "Filter by Case Type",
+            "📂 Filter by Case Type",
             ["All", "SR", "Incident"]
         )
+        status_filter = st.sidebar.selectbox(
+            "📌 Filter by Status",
+            ["All", "Pending SR/Incident", "Not Triaged"]
+        )
 
+        # Apply filters
+        df_display = df_filtered.copy()
         if type_filter != "All":
-            df_display = df_filtered[df_filtered["Type"] == type_filter]
-        else:
-            df_display = df_filtered.copy()
+            df_display = df_display[df_display["Type"] == type_filter]
+        if status_filter != "All":
+            df_display = df_display[df_display["Status"] == status_filter]
 
-        # Summary Metrics
+        # Metrics
         st.subheader("📈 Summary Metrics")
         total_srs = df_filtered[df_filtered["Type"] == "SR"].shape[0]
         total_incidents = df_filtered[df_filtered["Type"] == "Incident"].shape[0]
@@ -72,15 +78,14 @@ if uploaded_file:
         col1.metric("Total SRs", total_srs)
         col2.metric("Total Incidents", total_incidents)
 
-        # Status Breakdown
+        # Status Summary
         st.subheader("🧮 Status Breakdown")
         summary = df_filtered['Status'].value_counts().rename_axis('Status').reset_index(name='Count')
         st.table(summary)
 
-        # Display results
+        # Final results
         st.subheader("📋 Filtered Results")
         st.dataframe(df_display)
 
     except Exception as e:
         st.error(f"Something went wrong: {e}")
-
