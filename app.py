@@ -86,8 +86,7 @@ if uploaded_file:
         # Final results
         st.subheader("📋 Filtered Results")
         st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
-        st.dataframe(df_display)
-
+        
         # Reorder columns if status is "Pending SR/Incident"
         if status_filter == "Pending SR/Incident":
             front_cols = ['Type', 'Ticket Number']
