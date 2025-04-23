@@ -93,7 +93,7 @@ if uploaded_file:
         # SR vs Incident count table
         st.subheader("📊 Summary Counts")
 
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
 
         with col2:
             st.markdown("**🔹 SR vs Incident Count**")
@@ -106,6 +106,13 @@ if uploaded_file:
             triage_summary = triage_summary[triage_summary['Triage Status'].isin(['Pending SR/Incident', 'Not Triaged'])]
             st.table(triage_summary)
 
+        with col3:
+            st.markdown("**🟢 SR Status Count**")
+            if 'SR Status' in df_filtered.columns:
+                sr_status_summary = df_filtered['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Count')
+                st.table(sr_status_summary)
+            else:
+                st.info("Upload SR Status file to view this summary.")
         # Final result table
         st.subheader("📋 Filtered Results")
         st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
