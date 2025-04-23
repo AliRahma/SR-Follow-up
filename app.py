@@ -68,7 +68,7 @@ if uploaded_file:
                 df_sr_only = df_display[is_sr].copy()
 
                 df_sr_only = df_sr_only.merge(
-                    sr_df[['Ticket Number', 'Status', 'LastModDateTime']],
+                    sr_df[['Service Request', 'Status', 'LastModDateTime']],
                     on='Ticket Number', how='left'
                 ).rename(columns={'Status': 'SR Status', 'LastModDateTime': 'Last Update'})
 
