@@ -55,51 +55,51 @@ if uploaded_file:
             try:
                 sr_df = pd.read_excel(sr_status_file)
 
-                sr_df['Service Request'] = sr_df['Service Request'].astype(str).str.extract(r'(\d{4,})')
-                sr_df['Ticket Number'] = sr_df['Service Request'].astype(float).astype("Int64")
-                df_display['Ticket Number'] = df_display['Ticket Number'].astype("Int64")
+        # Extract numeric part and prepare for matching
+        sr_df['Service Request'] = sr_df['Service Request'].astype(str).str.extract(r'(\d{4,})')
+        sr_df['Ticket Number'] = sr_df['Service Request'].astype(float).astype("Int64")
+        df_display['Ticket Number'] = df_display['Ticket Number'].astype("Int64")
 
-                is_sr = df_display['Type'] == "SR"
-                df_sr_only = df_display[is_sr].copy()
+        is_sr = df_display['Type'] == "SR"
+        df_sr_only = df_display[is_sr].copy()
 
-                # Make sure required columns exist
-                required_cols = ['Ticket Number', 'Status', 'LastModDateTime']
-                missing = [col for col in required_cols if col not in sr_df.columns]
-                if missing:
-                    st.error(f"Missing column(s) in SR Status file: {', '.join(missing)}")
-                else:
-                    df_sr_only = df_sr_only.merge(
-                    sr_df[required_cols],
-                    on='Ticket Number', how='left'
-                ).rename(columns={'Status': 'SR Status', 'LastModDateTime': 'Last Update'})
+        # Check if necessary columns exist
+        required_cols = ['Ticket Number', 'Status', 'LastModDateTime']
+        missing = [col for col in required_cols if col not in sr_df.columns]
+        if missing:
+            st.error(f"Missing column(s) in SR Status file: {', '.join(missing)}")
+        else:
+            df_sr_only = df_sr_only.merge(
+                sr_df[required_cols],
+                on='Ticket Number', how='left'
+            ).rename(columns={
+                'Status': 'SR Status',
+                'LastModDateTime': 'Last Update'
+            })
 
+            if 'SR Status' not in df_sr_only.columns:
+                st.warning("Merge didn't return SR Status info — no matching Ticket Numbers found.")
+            else:
                 df_display.update(df_sr_only)
 
-                # Reorder columns only if SR Status and Last Update exist
+                # Reorder columns
                 front_cols = ['Type', 'Ticket Number']
                 if 'SR Status' in df_display.columns and 'Last Update' in df_display.columns:
                     front_cols += ['SR Status', 'Last Update']
 
+                    # Optional SR Status Filter
+                    sr_status_options = df_display['SR Status'].dropna().unique().tolist()
+                    sr_status_filter = st.sidebar.selectbox(
+                        "📌 Filter by SR Status", ["All"] + sorted(sr_status_options)
+                    )
+                    if sr_status_filter != "All":
+                        df_display = df_display[df_display['SR Status'] == sr_status_filter]
+
                 other_cols = [col for col in df_display.columns if col not in front_cols]
-                f_display = df_display[front_cols + other_cols]
+                df_display = df_display[front_cols + other_cols]
 
-
-                # SR Status filter
-                sr_status_options = df_display['SR Status'].dropna().unique().tolist()
-                sr_status_filter = st.sidebar.selectbox("📌 Filter by SR Status", ["All"] + sorted(sr_status_options))
-                if sr_status_filter != "All":
-                    df_display = df_display[df_display['SR Status'] == sr_status_filter]
-
-                # Pie chart
-                st.subheader("🥧 SR Status Distribution")
-                sr_pie = df_display[df_display['Type'] == "SR"]['SR Status'].value_counts()
-                fig, ax = plt.subplots()
-                ax.pie(sr_pie, labels=sr_pie.index, autopct='%1.1f%%', startangle=140)
-                ax.axis('equal')
-                st.pyplot(fig)
-
-            except Exception as e:
-                st.error(f"Error processing SR Status file: {e}")
+    except Exception as e:
+        st.error(f"Error processing SR Status file: {e}")
 
         # Summary
         st.subheader("📊 Summary")
