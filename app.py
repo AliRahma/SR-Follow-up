@@ -101,15 +101,19 @@ if uploaded_file:
 
         # Filtered data output
         st.subheader("📋 Filtered Results")
+        if sr_status_file and 'SR Status' in df_display.columns:
+            display_cols = [
+                'Ticket Number',
+                'Case Id',
+                'Last Note Date',
+                'Current User Id',
+                'SR Status',
+                'Last Update'
+            ]
+            existing_display_cols = [col for col in display_cols if col in df_display.columns]
+            df_display = df_display[existing_display_cols]
+
         st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
-
-        if status_filter == "Pending SR/Incident":
-            first_cols = ['Type', 'Ticket Number']
-            if 'SR Status' in df_display.columns:
-                first_cols += ['SR Status', 'Last Update']
-            remaining_cols = [col for col in df_display.columns if col not in first_cols]
-            df_display = df_display[first_cols + remaining_cols]
-
         st.dataframe(df_display)
 
         # Excel export
