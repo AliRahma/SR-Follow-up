@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import re
 import io
-import matplotlib.pyplot as plt
 
 # Page setup
 st.set_page_config(page_title="Excel Incident Analyzer", layout="wide")
@@ -44,114 +43,44 @@ if uploaded_file:
         status_filter = st.sidebar.selectbox("📌 Filter by Triage Status", ["All"] + df_filtered["Status"].dropna().unique().tolist())
         type_filter = st.sidebar.selectbox("📌 Filter by Type", ["All", "SR", "Incident"])
 
+        # Filtered table
         df_display = df_filtered.copy()
         if status_filter != "All":
             df_display = df_display[df_display["Status"] == status_filter]
         if type_filter != "All":
             df_display = df_display[df_display["Type"] == type_filter]
 
-        # Process SR Status File
-        if sr_status_file:
-            try:
-                sr_df = pd.read_excel(sr_status_file)
+        # Search
+        st.subheader("🔎 Search for Ticket Number")
+        search_input = st.text_input("Enter SR or Incident Number (e.g., 15023):")
+        if search_input.isdigit():
+            search_number = int(search_input)
+            df_display = df_display[df_display['Ticket Number'] == search_number]
 
-                # Extract numeric part and prepare for matching
-                sr_df['Service Request'] = sr_df['Service Request'].astype(str).str.extract(r'(\d{4,})')
-                sr_df['Ticket Number'] = sr_df['Service Request'].astype(float).astype("Int64")
-                df_display['Ticket Number'] = df_display['Ticket Number'].astype("Int64")
-
-                is_sr = df_display['Type'] == "SR"
-                df_sr_only = df_display[is_sr].copy()
-
-                # Check if necessary columns exist
-                required_cols = ['Ticket Number', 'Status', 'LastModDateTime']
-                missing = [col for col in required_cols if col not in sr_df.columns]
-                if missing:
-                    st.error(f"Missing column(s) in SR Status file: {', '.join(missing)}")
-                else:
-                    df_sr_only = df_sr_only.merge(
-                        sr_df[required_cols],
-                        on='Ticket Number', how='left'
-                    ).rename(columns={
-                        'Status': 'SR Status',
-                        'LastModDateTime': 'Last Update'
-                    })
-
-                    if 'SR Status' not in df_sr_only.columns:
-                        st.warning("Merge didn't return SR Status info — no matching Ticket Numbers found.")
-                    else:
-                        df_display.update(df_sr_only)
-
-                        # Reorder columns
-                        front_cols = ['Type', 'Ticket Number']
-                        if 'SR Status' in df_display.columns and 'Last Update' in df_display.columns:
-                            front_cols += ['SR Status', 'Last Update']
-
-                            # Optional SR Status Filter
-                            sr_status_options = df_display['SR Status'].dropna().unique().tolist()
-                            sr_status_filter = st.sidebar.selectbox(
-                                "📌 Filter by SR Status", ["All"] + sorted(sr_status_options)
-                            )
-                            if sr_status_filter != "All":
-                                df_display = df_display[df_display['SR Status'] == sr_status_filter]
-
-                        other_cols = [col for col in df_display.columns if col not in front_cols]
-                        df_display = df_display[front_cols + other_cols]
-
-            except Exception as e:
-                st.error(f"Error processing SR Status file: {e}")
-
-        # Summary
-        # Summary
-        st.subheader("📊 Summary")
-        summary = df_display['Status'].value_counts().rename_axis('Status').reset_index(name='Count')
-        st.table(summary)
-
-        # ➕ Updated: SR vs Incident Count Table
+        # SR vs Incident count table
         st.subheader("📊 SR vs Incident Count")
         type_summary = df_filtered['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
         st.table(type_summary)
 
-        # ➕ New: Search bar for Ticket Numbers
-        search_term = st.text_input("🔎 Search by Ticket Number (SR/Incident)")
-        if search_term:
-            try:
-                search_number = int(re.search(r'\d{4,}', search_term).group())
-                df_display = df_display[df_display['Ticket Number'] == search_number]
-                if df_display.empty:
-                    st.warning("No matching SR or Incident found.")
-            except:
-                st.warning("Invalid input. Please enter a valid number (4+ digits).")
-
-        # Filtered data output
+        # Final Result Table
         st.subheader("📋 Filtered Results")
         st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
+        shown_cols = ['Ticket Number', 'Case Id', 'Last Note', 'Current User Id']
+        for col in shown_cols:
+            if col not in df_display.columns:
+                df_display[col] = None
+        st.dataframe(df_display[shown_cols])
 
-        if status_filter == "Pending SR/Incident":
-            first_cols = ['Type', 'Ticket Number']
-            if 'SR Status' in df_display.columns:
-                first_cols += ['SR Status', 'Last Update']
-            remaining_cols = [col for col in df_display.columns if col not in first_cols]
-            df_display = df_display[first_cols + remaining_cols]
-
-        st.dataframe(df_display)
-
-        # Excel export
+        # Excel download
         def generate_excel_download(data):
             output = io.BytesIO()
             writer = pd.ExcelWriter(output, engine='xlsxwriter')
             data.to_excel(writer, index=False, sheet_name='Results')
-            workbook = writer.book
-            worksheet = writer.sheets['Results']
-            red_format = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
-            for row_num, row in data.iterrows():
-                if row.get("Type") == "SR" and pd.isna(row.get("Last Update")):
-                    worksheet.set_row(row_num + 1, None, red_format)
             writer.close()
             output.seek(0)
             return output
 
-        excel_data = generate_excel_download(df_display)
+        excel_data = generate_excel_download(df_display[shown_cols])
         st.download_button(
             label="📥 Download Filtered Data to Excel",
             data=excel_data,
@@ -161,3 +90,17 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"Something went wrong: {e}")
+
+# SR Status separate view
+if sr_status_file:
+    try:
+        sr_df = pd.read_excel(sr_status_file)
+        st.subheader("📋 SR Status File Results")
+        required_cols = ['Service Request', 'Status', 'LastModDateTime']
+        missing = [col for col in required_cols if col not in sr_df.columns]
+        if missing:
+            st.error(f"Missing column(s) in SR Status file: {', '.join(missing)}")
+        else:
+            st.dataframe(sr_df[required_cols])
+    except Exception as e:
+        st.error(f"Error processing SR Status file: {e}")
