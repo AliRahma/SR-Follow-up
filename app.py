@@ -96,10 +96,16 @@ if uploaded_file:
         col1, col2, col3 = st.columns(3)
 
         with col2:
-            st.markdown("**🔹 SR vs Incident Count**")
             type_summary = df_filtered['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
             type_total = pd.DataFrame([{'Type': 'Total', 'Count': type_summary['Count'].sum()}])
-            st.table(pd.concat([type_summary, type_total], ignore_index=True))
+            type_df = pd.concat([type_summary, type_total], ignore_index=True)
+
+            st.dataframe(
+                type_df.style.apply(
+                    lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(type_df)-1 else '' for _ in x],
+                    axis=1
+                )
+            )
 
         with col1:
             st.markdown("**🔸 Triage Status Count**")
