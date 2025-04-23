@@ -113,14 +113,28 @@ if uploaded_file:
             triage_summary = df_filtered['Status'].value_counts().rename_axis('Triage Status').reset_index(name='Count')
             triage_summary = triage_summary[triage_summary['Triage Status'].isin(['Pending SR/Incident', 'Not Triaged'])]
             triage_total = pd.DataFrame([{'Triage Status': 'Total', 'Count': triage_summary['Count'].sum()}])
-            st.table(pd.concat([triage_summary, triage_total], ignore_index=True))
+            triage_df = pd.concat([triage_summary, triage_total], ignore_index=True)
+
+            st.dataframe(
+                triage_df.style.apply(
+                    lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(triage_df)-1 else '' for _ in x],
+                    axis=1
+                )
+            )
 
         with col3:
             st.markdown("**🟢 SR Status Count**")
             if 'SR Status' in df_filtered.columns:
                 sr_status_summary = df_filtered['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Count')
                 sr_status_total = pd.DataFrame([{'SR Status': 'Total', 'Count': sr_status_summary['Count'].sum()}])
-                st.table(pd.concat([sr_status_summary, sr_status_total], ignore_index=True))
+                sr_df = pd.concat([sr_status_summary, sr_status_total], ignore_index=True)
+
+                st.dataframe(
+                    sr_df.style.apply(
+                        lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(sr_df)-1 else '' for _ in x],
+                        axis=1
+                    )
+                )
             else:
                 st.info("Upload SR Status file to view this summary.")
         # Final result table
