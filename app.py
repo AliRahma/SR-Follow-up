@@ -71,7 +71,11 @@ if uploaded_file:
                         on='Ticket Number', how='left'
                     ).rename(columns={'Status': 'SR Status', 'LastModDateTime': 'Last Update'})
 
-                    df_display.update(df_merged)
+                    # Remove the old SR rows and append the merged ones
+                    df_display = pd.concat([
+                        df_display[~is_sr],
+                        df_merged
+                    ], ignore_index=True)
 
                     # Reorder columns
                     front_cols = ['Type', 'Ticket Number']
