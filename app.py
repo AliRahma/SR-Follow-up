@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import re
 import io
-import matplotlib.pyplot as plt
 
 # Page setup
 st.set_page_config(page_title="Excel Incident Analyzer", layout="wide")
@@ -55,41 +54,40 @@ if uploaded_file:
             try:
                 sr_df = pd.read_excel(sr_status_file)
 
-                # Clean numeric part and match types
+                # Extract numeric part and prepare for matching
                 sr_df['Service Request'] = sr_df['Service Request'].astype(str).str.extract(r'(\d{4,})')
-                sr_df['Ticket Number'] = pd.to_numeric(sr_df['Service Request'], errors='coerce').astype("Int64")
-                df_display['Ticket Number'] = pd.to_numeric(df_display['Ticket Number'], errors='coerce').astype("Int64")
+                sr_df['Ticket Number'] = sr_df['Service Request'].astype(float).astype("Int64")
+                df_display['Ticket Number'] = df_display['Ticket Number'].astype("Int64")
 
                 is_sr = df_display['Type'] == "SR"
                 df_sr_only = df_display[is_sr].copy()
 
-                if 'Status' not in sr_df.columns or 'LastModDateTime' not in sr_df.columns:
-                    st.error("Missing columns in SR Status file. Required: 'Status' and 'LastModDateTime'.")
+                required_cols = ['Ticket Number', 'Status', 'LastModDateTime']
+                missing = [col for col in required_cols if col not in sr_df.columns]
+                if missing:
+                    st.error(f"Missing column(s) in SR Status file: {', '.join(missing)}")
                 else:
-                    df_merged = df_sr_only.merge(
-                        sr_df[['Ticket Number', 'Status', 'LastModDateTime']],
+                    df_sr_only = df_sr_only.merge(
+                        sr_df[required_cols],
                         on='Ticket Number', how='left'
-                    ).rename(columns={'Status': 'SR Status', 'LastModDateTime': 'Last Update'})
+                    ).rename(columns={
+                        'Status': 'SR Status',
+                        'LastModDateTime': 'Last Update'
+                    })
 
-                    # Remove the old SR rows and append the merged ones
-                    df_display = pd.concat([
-                        df_display[~is_sr],
-                        df_merged
-                    ], ignore_index=True)
+                    if 'SR Status' not in df_sr_only.columns:
+                        st.warning("Merge didn't return SR Status info — no matching Ticket Numbers found.")
+                    else:
+                        df_display.update(df_sr_only)
 
-                    # Reorder columns
-                    front_cols = ['Type', 'Ticket Number']
-                    if 'SR Status' in df_display.columns and 'Last Update' in df_display.columns:
-                        front_cols += ['SR Status', 'Last Update']
-
-                        # SR Status filter
-                        sr_status_options = df_display['SR Status'].dropna().unique().tolist()
-                        sr_status_filter = st.sidebar.selectbox("📌 Filter by SR Status", ["All"] + sorted(sr_status_options))
-                        if sr_status_filter != "All":
-                            df_display = df_display[df_display['SR Status'] == sr_status_filter]
-
-                    other_cols = [col for col in df_display.columns if col not in front_cols]
-                    df_display = df_display[front_cols + other_cols]
+                        # Optional SR Status Filter
+                        if 'SR Status' in df_display.columns:
+                            sr_status_options = df_display['SR Status'].dropna().unique().tolist()
+                            sr_status_filter = st.sidebar.selectbox(
+                                "📌 Filter by SR Status", ["All"] + sorted(sr_status_options)
+                            )
+                            if sr_status_filter != "All":
+                                df_display = df_display[df_display['SR Status'] == sr_status_filter]
 
             except Exception as e:
                 st.error(f"Error processing SR Status file: {e}")
@@ -101,15 +99,21 @@ if uploaded_file:
 
         # Filtered data output
         st.subheader("📋 Filtered Results")
+
+        # Show only selected columns if second file is uploaded
+        if sr_status_file and 'SR Status' in df_display.columns:
+            display_cols = [
+                'Ticket Number',
+                'Case Id',
+                'Last Note Date',
+                'Current User Id',
+                'SR Status',
+                'Last Update'
+            ]
+            existing_display_cols = [col for col in display_cols if col in df_display.columns]
+            df_display = df_display[existing_display_cols]
+
         st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
-
-        if status_filter == "Pending SR/Incident":
-            first_cols = ['Type', 'Ticket Number']
-            if 'SR Status' in df_display.columns:
-                first_cols += ['SR Status', 'Last Update']
-            remaining_cols = [col for col in df_display.columns if col not in first_cols]
-            df_display = df_display[first_cols + remaining_cols]
-
         st.dataframe(df_display)
 
         # Excel export
@@ -117,12 +121,6 @@ if uploaded_file:
             output = io.BytesIO()
             writer = pd.ExcelWriter(output, engine='xlsxwriter')
             data.to_excel(writer, index=False, sheet_name='Results')
-            workbook = writer.book
-            worksheet = writer.sheets['Results']
-            red_format = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
-            for row_num, row in data.iterrows():
-                if row.get("Type") == "SR" and pd.isna(row.get("Last Update")):
-                    worksheet.set_row(row_num + 1, None, red_format)
             writer.close()
             output.seek(0)
             return output
