@@ -85,7 +85,9 @@ if uploaded_file:
 
         # Final results
         st.subheader("📋 Filtered Results")
+        st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
         st.dataframe(df_display)
+
 
     except Exception as e:
         st.error(f"Something went wrong: {e}")
