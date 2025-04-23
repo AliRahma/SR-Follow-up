@@ -102,9 +102,30 @@ if uploaded_file:
                 st.error(f"Error processing SR Status file: {e}")
 
         # Summary
+        # Summary
         st.subheader("📊 Summary")
         summary = df_display['Status'].value_counts().rename_axis('Status').reset_index(name='Count')
         st.table(summary)
+
+        # ➕ New: SR vs Incident Count Chart
+        st.subheader("📊 SR vs Incident Count")
+        type_count = df_filtered['Type'].value_counts()
+        fig, ax = plt.subplots()
+        ax.bar(type_count.index, type_count.values, color=['skyblue', 'orange'])
+        ax.set_ylabel("Count")
+        ax.set_title("Count of SRs and Incidents")
+        st.pyplot(fig)
+
+        # ➕ New: Search bar for Ticket Numbers
+        search_term = st.text_input("🔎 Search by Ticket Number (SR/Incident)")
+        if search_term:
+            try:
+                search_number = int(re.search(r'\d{4,}', search_term).group())
+                df_display = df_display[df_display['Ticket Number'] == search_number]
+                if df_display.empty:
+                    st.warning("No matching SR or Incident found.")
+            except:
+                st.warning("Invalid input. Please enter a valid number (4+ digits).")
 
         # Filtered data output
         st.subheader("📋 Filtered Results")
