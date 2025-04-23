@@ -88,6 +88,14 @@ if uploaded_file:
         st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
         st.dataframe(df_display)
 
+        # Reorder columns if status is "Pending SR/Incident"
+        if status_filter == "Pending SR/Incident":
+            front_cols = ['Type', 'Ticket Number']
+            remaining_cols = [col for col in df_display.columns if col not in front_cols]
+            df_display = df_display[front_cols + remaining_cols]
+
+        st.dataframe(df_display)
+
 
     except Exception as e:
         st.error(f"Something went wrong: {e}")
