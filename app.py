@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 import io
+import matplotlib.pyplot as plt
 
 # Page setup
 st.set_page_config(page_title="Excel Incident Analyzer", layout="wide")
@@ -15,7 +16,6 @@ if uploaded_file:
     try:
         df = pd.read_excel(uploaded_file)
 
-        # Column setup
         user_col = 'Current User Id'
         note_col = 'Last Note'
         date_col = 'Case Start Date'
@@ -23,7 +23,7 @@ if uploaded_file:
         df_filtered = df[df[user_col].isin(target_users)].copy()
         df_filtered[date_col] = pd.to_datetime(df_filtered[date_col], errors='coerce')
 
-        # Classification logic
+        # Classification
         def classify_and_extract(note):
             if not isinstance(note, str):
                 return "Not Triaged", None, None
@@ -38,29 +38,31 @@ if uploaded_file:
             lambda x: pd.Series(classify_and_extract(x))
         )
 
+        df_display = df_filtered.copy()
+
         # Sidebar filters
         st.sidebar.markdown("---")
         status_filter = st.sidebar.selectbox("📌 Filter by Triage Status", ["All"] + df_filtered["Status"].dropna().unique().tolist())
         type_filter = st.sidebar.selectbox("📌 Filter by Type", ["All", "SR", "Incident"])
 
-        df_display = df_filtered.copy()
         if status_filter != "All":
             df_display = df_display[df_display["Status"] == status_filter]
         if type_filter != "All":
             df_display = df_display[df_display["Type"] == type_filter]
 
-        # Process SR Status File
+        # Process SR Status file
         if sr_status_file:
             try:
                 sr_df = pd.read_excel(sr_status_file)
 
-                # Extract numeric part and prepare for matching
+                # Extract and normalize ticket numbers
                 sr_df['Service Request'] = sr_df['Service Request'].astype(str).str.extract(r'(\d{4,})')
                 sr_df['Ticket Number'] = sr_df['Service Request'].astype(float).astype("Int64")
-                df_display['Ticket Number'] = df_display['Ticket Number'].astype("Int64")
 
-                is_sr = df_display['Type'] == "SR"
-                df_sr_only = df_display[is_sr].copy()
+                df_display['Ticket Number'] = df_display['Ticket Number'].astype(str).str.extract(r'(\d{4,})')
+                df_display['Ticket Number'] = df_display['Ticket Number'].astype(float).astype("Int64")
+
+                df_sr_only = df_display[df_display['Type'] == 'SR'].copy()
 
                 required_cols = ['Ticket Number', 'Status', 'LastModDateTime']
                 missing = [col for col in required_cols if col not in sr_df.columns]
@@ -80,43 +82,31 @@ if uploaded_file:
                     else:
                         df_display.update(df_sr_only)
 
-                        # Optional SR Status Filter
+                        # Optional SR Status filter
                         if 'SR Status' in df_display.columns:
                             sr_status_options = df_display['SR Status'].dropna().unique().tolist()
-                            sr_status_filter = st.sidebar.selectbox(
-                                "📌 Filter by SR Status", ["All"] + sorted(sr_status_options)
-                            )
+                            sr_status_filter = st.sidebar.selectbox("📌 Filter by SR Status", ["All"] + sorted(sr_status_options))
                             if sr_status_filter != "All":
                                 df_display = df_display[df_display['SR Status'] == sr_status_filter]
+
+                        # Final display limited to specified columns
+                        final_columns = ['Ticket Number', 'Case Id', 'Last Note Date', 'Current User Id', 'SR Status', 'Last Update']
+                        existing_cols = [col for col in final_columns if col in df_display.columns]
+                        df_display = df_display[existing_cols]
 
             except Exception as e:
                 st.error(f"Error processing SR Status file: {e}")
 
-        # Summary
+        # Summary and Results
         st.subheader("📊 Summary")
-        summary = df_display['Status'].value_counts().rename_axis('Status').reset_index(name='Count')
+        summary = df_filtered['Status'].value_counts().rename_axis('Status').reset_index(name='Count')
         st.table(summary)
 
-        # Filtered data output
         st.subheader("📋 Filtered Results")
-
-        # Show only selected columns if second file is uploaded
-        if sr_status_file and 'SR Status' in df_display.columns:
-            display_cols = [
-                'Ticket Number',
-                'Case Id',
-                'Last Note Date',
-                'Current User Id',
-                'SR Status',
-                'Last Update'
-            ]
-            existing_display_cols = [col for col in display_cols if col in df_display.columns]
-            df_display = df_display[existing_display_cols]
-
         st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
         st.dataframe(df_display)
 
-        # Excel export
+        # Download
         def generate_excel_download(data):
             output = io.BytesIO()
             writer = pd.ExcelWriter(output, engine='xlsxwriter')
