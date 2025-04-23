@@ -69,10 +69,14 @@ if uploaded_file:
 
                 df_display.update(df_sr_only)
 
-                # Reorder columns
-                front_cols = ['Type', 'Ticket Number', 'SR Status', 'Last Update']
+                # Reorder columns only if SR Status and Last Update exist
+                front_cols = ['Type', 'Ticket Number']
+                if 'SR Status' in df_display.columns and 'Last Update' in df_display.columns:
+                    front_cols += ['SR Status', 'Last Update']
+
                 other_cols = [col for col in df_display.columns if col not in front_cols]
-                df_display = df_display[front_cols + other_cols]
+                f_display = df_display[front_cols + other_cols]
+
 
                 # SR Status filter
                 sr_status_options = df_display['SR Status'].dropna().unique().tolist()
