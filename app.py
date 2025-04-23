@@ -95,12 +95,12 @@ if uploaded_file:
 
         col1, col2 = st.columns(2)
 
-        with col1:
+        with col2:
             st.markdown("**🔹 SR vs Incident Count**")
             type_summary = df_filtered['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
             st.table(type_summary)
 
-        with col2:
+        with col1:
             st.markdown("**🔸 Triage Status Count**")
             triage_summary = df_filtered['Status'].value_counts().rename_axis('Triage Status').reset_index(name='Count')
             triage_summary = triage_summary[triage_summary['Triage Status'].isin(['Pending SR/Incident', 'Not Triaged'])]
