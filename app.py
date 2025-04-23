@@ -43,7 +43,6 @@ if uploaded_file:
         status_filter = st.sidebar.selectbox("📌 Filter by Triage Status", ["All"] + df_filtered["Status"].dropna().unique().tolist())
         type_filter = st.sidebar.selectbox("📌 Filter by Type", ["All", "SR", "Incident"])
 
-        # Filtered table
         df_display = df_filtered.copy()
         if status_filter != "All":
             df_display = df_display[df_display["Status"] == status_filter]
@@ -57,15 +56,40 @@ if uploaded_file:
             search_number = int(search_input)
             df_display = df_display[df_display['Ticket Number'] == search_number]
 
+        # Add SR Status from second Excel if uploaded
+        if sr_status_file:
+            try:
+                sr_df = pd.read_excel(sr_status_file)
+                sr_df['Service Request'] = sr_df['Service Request'].astype(str).str.extract(r'(\d{4,})')
+                sr_df['Service Request'] = sr_df['Service Request'].astype(float).astype("Int64")
+
+                sr_df = sr_df.rename(columns={
+                    'Status': 'SR Status',
+                    'LastModDateTime': 'Last Update'
+                })
+
+                df_display['Ticket Number'] = df_display['Ticket Number'].astype("Int64")
+                df_display = df_display.merge(
+                    sr_df[['Service Request', 'SR Status', 'Last Update']],
+                    how='left',
+                    left_on='Ticket Number',
+                    right_on='Service Request'
+                ).drop(columns=['Service Request'])
+
+            except Exception as e:
+                st.error(f"Error merging SR Status file: {e}")
+
         # SR vs Incident count table
         st.subheader("📊 SR vs Incident Count")
         type_summary = df_filtered['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
         st.table(type_summary)
 
-        # Final Result Table
+        # Final result table
         st.subheader("📋 Filtered Results")
         st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
         shown_cols = ['Ticket Number', 'Case Id', 'Last Note', 'Current User Id']
+        if 'SR Status' in df_display.columns and 'Last Update' in df_display.columns:
+            shown_cols += ['SR Status', 'Last Update']
         for col in shown_cols:
             if col not in df_display.columns:
                 df_display[col] = None
@@ -91,7 +115,7 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Something went wrong: {e}")
 
-# SR Status separate view
+# SR Status file separate display
 if sr_status_file:
     try:
         sr_df = pd.read_excel(sr_status_file)
