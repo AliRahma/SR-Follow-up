@@ -139,7 +139,6 @@ if uploaded_file:
             )
 
         with col1:
-            plot_sr_status_bar(df_display[df_display['Type'] == "SR"])
             st.markdown("**🔸 Triage Status Count**")
             triage_summary = df_filtered['Status'].value_counts().rename_axis('Triage Status').reset_index(name='Count')
             triage_summary = triage_summary[triage_summary['Triage Status'].isin(['Pending SR/Incident', 'Not Triaged'])]
@@ -205,7 +204,7 @@ if uploaded_file:
             if col not in df_display.columns:
                 df_display[col] = None
         st.dataframe(df_display[shown_cols])
-
+        plot_sr_status_bar(df_display[df_display['Type'] == "SR"])
         # Excel download
         def generate_excel_download(data):
             output = io.BytesIO()
