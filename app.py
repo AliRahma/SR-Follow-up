@@ -171,7 +171,7 @@ if uploaded_file:
                     # Colors: from red to orange
                     colors = plt.cm.autumn_r([i / len(status_counts) for i in range(len(status_counts))])
 
-                    fig, ax = plt.subplots(figsize=(4, 4))
+                    fig, ax = plt.subplots(figsize=(5, 3))
                     bars = ax.bar(status_counts.index, status_counts.values, color=colors, edgecolor='black')
 
                     # Add count labels on top of bars
