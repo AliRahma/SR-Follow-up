@@ -171,7 +171,7 @@ if uploaded_file:
                     # Colors: from red to orange
                     colors = plt.cm.autumn_r([i / len(status_counts) for i in range(len(status_counts))])
 
-                    fig, ax = plt.subplots(figsize=(8, 4))
+                    fig, ax = plt.subplots(figsize=(4, 4))
                     bars = ax.bar(status_counts.index, status_counts.values, color=colors, edgecolor='black')
 
                     # Add count labels on top of bars
@@ -200,7 +200,7 @@ if uploaded_file:
             if col not in df_display.columns:
                 df_display[col] = None
         st.dataframe(df_display[shown_cols])
-        
+
         plot_sr_status_bar(df_display[df_display['Type'] == "SR"])
 
         # Excel download
