@@ -3,13 +3,14 @@ import pandas as pd
 import re
 import io
 import base64
-import matplotlib.pyplot as plt
 
+# Page must be set at the top
+st.set_page_config(page_title="SR Follow up", layout="wide")
+
+# Optional dark-themed background
 def set_background_dark(image_file):
-    import base64
     with open(image_file, "rb") as image:
         encoded = base64.b64encode(image.read()).decode()
-    
     css = f"""
     <style>
     .stApp {{
@@ -21,34 +22,30 @@ def set_background_dark(image_file):
         background-attachment: fixed;
         color: #f0f0f0 !important;
     }}
-    .stMarkdown, .stDataFrame, .stTable, .stSelectbox, .stDownloadButton {{
-        color: #f0f0f0 !important;
-    }}
-    .stDataFrame div {{
+    .stDataFrame div, .stTable, .stMarkdown, .stSelectbox, .stDownloadButton {{
         background-color: rgba(0, 0, 0, 0.5) !important;
     }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
-    
-st.set_page_config(page_title="SR Follow up", layout="wide")
-# set_background_dark("GPSSA.jpg")  # Adjust path if needed
 
-#Page setup
+# Example: set_background_dark("GPSSA.jpg")
+
+# UI setup
 st.title("📊 SR Analyzer")
 
-# Sidebar uploads
 uploaded_file = st.sidebar.file_uploader("📂 Upload Main Excel File (.xlsx)", type="xlsx")
 sr_status_file = st.sidebar.file_uploader("📂 Upload SR Status Excel (optional)", type="xlsx")
 
-# Initialize filter variable
-sr_status_filter = None
+# Store selected ticket in session state
+if "selected_ticket" not in st.session_state:
+    st.session_state.selected_ticket = None
 
 if uploaded_file:
     try:
         df = pd.read_excel(uploaded_file)
 
-        # Column setup
+        # Basic filtering and classification
         user_col = 'Current User Id'
         note_col = 'Last Note'
         date_col = 'Case Start Date'
@@ -56,7 +53,6 @@ if uploaded_file:
         df_filtered = df[df[user_col].isin(target_users)].copy()
         df_filtered[date_col] = pd.to_datetime(df_filtered[date_col], errors='coerce')
 
-        # Classification logic
         def classify_and_extract(note):
             if not isinstance(note, str):
                 return "Not Triaged", None, None
@@ -73,112 +69,86 @@ if uploaded_file:
 
         # Merge SR status if uploaded
         if sr_status_file:
-            try:
-                sr_df = pd.read_excel(sr_status_file)
-                sr_df['Service Request'] = sr_df['Service Request'].astype(str).str.extract(r'(\d{4,})')
-                sr_df['Service Request'] = sr_df['Service Request'].astype(float).astype("Int64")
+            sr_df = pd.read_excel(sr_status_file)
+            sr_df['Service Request'] = sr_df['Service Request'].astype(str).str.extract(r'(\d{4,})')
+            sr_df['Service Request'] = sr_df['Service Request'].astype(float).astype("Int64")
+            sr_df = sr_df.rename(columns={'Status': 'SR Status', 'LastModDateTime': 'Last Update'})
 
-                sr_df = sr_df.rename(columns={
-                    'Status': 'SR Status',
-                    'LastModDateTime': 'Last Update'
-                })
+            df_filtered['Ticket Number'] = df_filtered['Ticket Number'].astype("Int64")
+            df_filtered = df_filtered.merge(
+                sr_df[['Service Request', 'SR Status', 'Last Update']],
+                how='left', left_on='Ticket Number', right_on='Service Request'
+            ).drop(columns=['Service Request'])
 
-                df_filtered['Ticket Number'] = df_filtered['Ticket Number'].astype("Int64")
-                df_filtered = df_filtered.merge(
-                    sr_df[['Service Request', 'SR Status', 'Last Update']],
-                    how='left',
-                    left_on='Ticket Number',
-                    right_on='Service Request'
-                ).drop(columns=['Service Request'])
-
-                # Add SR Status filter to sidebar
-                st.sidebar.markdown("---")
-                sr_status_options = df_filtered['SR Status'].dropna().unique().tolist()
-                sr_status_filter = st.sidebar.selectbox("📌 Filter by SR Status", ["All"] + sr_status_options)
-
-            except Exception as e:
-                st.error(f"Error merging SR Status file: {e}")
-
-        # Other sidebar filters
+        # Filters
         st.sidebar.markdown("---")
         status_filter = st.sidebar.selectbox("📌 Filter by Triage Status", ["All"] + df_filtered["Status"].dropna().unique().tolist())
         type_filter = st.sidebar.selectbox("📌 Filter by Type", ["All", "SR", "Incident"])
+        sr_status_options = df_filtered['SR Status'].dropna().unique().tolist()
+        sr_status_filter = st.sidebar.selectbox("📌 Filter by SR Status", ["All"] + sr_status_options)
 
         df_display = df_filtered.copy()
         if status_filter != "All":
             df_display = df_display[df_display["Status"] == status_filter]
         if type_filter != "All":
             df_display = df_display[df_display["Type"] == type_filter]
-        if sr_status_filter and sr_status_filter != "All":
+        if sr_status_filter != "All":
             df_display = df_display[df_display["SR Status"] == sr_status_filter]
 
-        # Search
-        st.subheader("🔎 Search for Ticket Number")
-        search_input = st.text_input("Enter SR or Incident Number (e.g., 15023):")
-        if search_input.isdigit():
-            search_number = int(search_input)
-            df_display = df_display[df_display['Ticket Number'] == search_number]
+        # Interactive Ticket Analysis
+        st.subheader("🎯 Ticket-wise Case Count")
+        ticket_counts = df_filtered['Ticket Number'].value_counts().rename_axis('Ticket Number').reset_index(name='Case Count')
 
-        # SR vs Incident count table
-        # SR vs Incident count table
+        def handle_ticket_click(ticket):
+            if st.session_state.selected_ticket == ticket:
+                st.session_state.selected_ticket = None
+            else:
+                st.session_state.selected_ticket = ticket
+
+        for _, row in ticket_counts.iterrows():
+            if st.button(f"🎫 Ticket {int(row['Ticket Number'])} — {row['Case Count']} cases", key=row['Ticket Number']):
+                handle_ticket_click(row['Ticket Number'])
+
+        # Apply interactive filter if any ticket is selected
+        if st.session_state.selected_ticket:
+            df_display = df_display[df_display['Ticket Number'] == st.session_state.selected_ticket]
+
+        # Summary Sections
         st.subheader("📊 Summary Counts")
-
         col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown("**🔸 Triage Status Count**")
+            triage_summary = df_filtered['Status'].value_counts().loc[['Pending SR/Incident', 'Not Triaged']]
+            triage_df = triage_summary.rename_axis('Triage Status').reset_index(name='Count')
+            triage_total = pd.DataFrame([{'Triage Status': 'Total', 'Count': triage_df['Count'].sum()}])
+            df_triage = pd.concat([triage_df, triage_total], ignore_index=True)
+            st.dataframe(df_triage.style.apply(lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(df_triage)-1 else '' for _ in x], axis=1))
 
         with col2:
             st.markdown("**🔹 SR vs Incident Count**")
             type_summary = df_filtered['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
             type_total = pd.DataFrame([{'Type': 'Total', 'Count': type_summary['Count'].sum()}])
             type_df = pd.concat([type_summary, type_total], ignore_index=True)
-
-            st.dataframe(
-                type_df.style.apply(
-                    lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(type_df)-1 else '' for _ in x],
-                    axis=1
-                )
-            )
-
-        with col1:
-            st.markdown("**🔸 Triage Status Count**")
-            triage_summary = df_filtered['Status'].value_counts().rename_axis('Triage Status').reset_index(name='Count')
-            triage_summary = triage_summary[triage_summary['Triage Status'].isin(['Pending SR/Incident', 'Not Triaged'])]
-            triage_total = pd.DataFrame([{'Triage Status': 'Total', 'Count': triage_summary['Count'].sum()}])
-            triage_df = pd.concat([triage_summary, triage_total], ignore_index=True)
-
-            st.dataframe(
-                triage_df.style.apply(
-                    lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(triage_df)-1 else '' for _ in x],
-                    axis=1
-                )
-            )
+            st.dataframe(type_df.style.apply(lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(type_df)-1 else '' for _ in x], axis=1))
 
         with col3:
             st.markdown("**🟢 SR Status Count**")
-            if 'SR Status' in df_filtered.columns:
-                sr_status_summary = df_filtered['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Count')
-                sr_status_total = pd.DataFrame([{'SR Status': 'Total', 'Count': sr_status_summary['Count'].sum()}])
-                sr_df = pd.concat([sr_status_summary, sr_status_total], ignore_index=True)
+            sr_status_summary = df_filtered['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Count')
+            sr_total = pd.DataFrame([{'SR Status': 'Total', 'Count': sr_status_summary['Count'].sum()}])
+            sr_df = pd.concat([sr_status_summary, sr_total], ignore_index=True)
+            st.dataframe(sr_df.style.apply(lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(sr_df)-1 else '' for _ in x], axis=1))
 
-                st.dataframe(
-                    sr_df.style.apply(
-                        lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(sr_df)-1 else '' for _ in x],
-                        axis=1
-                    )
-                )
-            else:
-                st.info("Upload SR Status file to view this summary.")
-        # Final result table
+        # Filtered results
         st.subheader("📋 Filtered Results")
         st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
-        shown_cols = ['Ticket Number', 'Case Id', 'Last Note', 'Current User Id']
-        if 'SR Status' in df_display.columns and 'Last Update' in df_display.columns:
-            shown_cols += ['SR Status', 'Last Update']
+        shown_cols = ['Ticket Number', 'Case Id', 'Last Note', 'Current User Id', 'SR Status', 'Last Update']
         for col in shown_cols:
             if col not in df_display.columns:
                 df_display[col] = None
         st.dataframe(df_display[shown_cols])
 
-        # Excel download
+        # Download
         def generate_excel_download(data):
             output = io.BytesIO()
             writer = pd.ExcelWriter(output, engine='xlsxwriter')
@@ -188,12 +158,7 @@ if uploaded_file:
             return output
 
         excel_data = generate_excel_download(df_display[shown_cols])
-        st.download_button(
-            label="📥 Download Filtered Data to Excel",
-            data=excel_data,
-            file_name="filtered_results.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        st.download_button("📥 Download Filtered Data to Excel", data=excel_data, file_name="filtered_results.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     except Exception as e:
         st.error(f"Something went wrong: {e}")
