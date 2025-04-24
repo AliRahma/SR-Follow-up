@@ -168,29 +168,25 @@ if uploaded_file:
                 def plot_sr_status_bar(df):
                     status_counts = df['SR Status'].value_counts()
 
-                    # Red-to-orange color palette
+                    # Colors: from red to orange
                     colors = plt.cm.autumn_r([i / len(status_counts) for i in range(len(status_counts))])
 
-                    # Create a compact 2x3 inch figure
-                    fig, ax = plt.subplots(figsize=(2, 3))  # width=2in, height=3in
-
+                    fig, ax = plt.subplots(figsize=(2, 1))
                     bars = ax.bar(status_counts.index, status_counts.values, color=colors, edgecolor='black')
 
-                    # Add count labels
+                    # Add count labels on top of bars
                     for bar in bars:
                         height = bar.get_height()
                         ax.annotate(f'{height}', xy=(bar.get_x() + bar.get_width() / 2, height),
-                                    xytext=(0, 1), textcoords="offset points",
-                                    ha='center', va='bottom', fontsize=6, color='black')
+                                    xytext=(0, 3), textcoords="offset points",
+                                    ha='center', va='bottom', fontsize=3, color='black')
 
-                    # Small fonts and layout tweaks for compact look
-                    ax.set_title("SR Status", fontsize=7, fontweight='bold', loc='left')
-                    ax.set_ylabel("Count", fontsize=6)
-                    ax.set_xlabel("SR Status", fontsize=6)
-                    ax.tick_params(axis='x', labelrotation=45, labelsize=5)
-                    ax.tick_params(axis='y', labelsize=6)
-
+                    ax.set_title("SR Status Distribution", fontsize=6, fontweight='bold')
+                    ax.set_ylabel("Count")
+                    ax.set_xlabel("SR Status")
+                    plt.xticks(rotation=30, ha='right')
                     plt.tight_layout()
+
                     st.pyplot(fig)
             else:
                 st.info("Upload SR Status file to view this summary.")
@@ -204,7 +200,9 @@ if uploaded_file:
             if col not in df_display.columns:
                 df_display[col] = None
         st.dataframe(df_display[shown_cols])
+
         plot_sr_status_bar(df_display[df_display['Type'] == "SR"])
+
         # Excel download
         def generate_excel_download(data):
             output = io.BytesIO()
