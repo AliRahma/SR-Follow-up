@@ -105,9 +105,56 @@ if uploaded_file:
             else:
                 st.session_state.selected_ticket = ticket
 
+        st.markdown("**🎟️ Click on a ticket to filter the results:**")
+
+        ticket_counts = ticket_counts.sort_values('Ticket Number')
+        ticket_html = """
+        <style>
+        .ticket-table td {{
+            padding: 6px 12px;
+            border: 1px solid #999;
+        }}
+        .ticket-table tr:hover {{
+            background-color: #444;
+            cursor: pointer;
+        }}
+        </style>
+        <table class='ticket-table'>
+            <tr><th>Ticket Number</th><th>Case Count</th></tr>
+        """
         for _, row in ticket_counts.iterrows():
-            if st.button(f"🎫 Ticket {int(row['Ticket Number'])} — {row['Case Count']} cases", key=row['Ticket Number']):
-                handle_ticket_click(row['Ticket Number'])
+            ticket = int(row["Ticket Number"])
+            count = row["Case Count"]
+            selected = st.session_state.selected_ticket == ticket
+            row_color = "style='background-color: #0078D4; color: white;'" if selected else ""
+            ticket_html += f"""
+            <tr onclick="document.dispatchEvent(new CustomEvent('select-ticket', {{ detail: '{ticket}' }}));" {row_color}>
+                <td>{ticket}</td><td>{count}</td>
+            </tr>
+            """
+        ticket_html += "</table>"
+
+        components.html(ticket_html + """
+        <script>
+        document.addEventListener("select-ticket", function(e) {
+            const ticket = e.detail;
+            const input = window.parent.document.querySelector('input[data-testid="ticket-filter"]');
+            if (input) {{
+                input.value = ticket;
+                input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+            }}
+        });
+        </script>
+        """, height=400)
+
+        # Simulate ticket filtering via hidden input
+        ticket_input = st.text_input("Click a row to filter by Ticket Number", key="ticket-filter", label_visibility="collapsed")
+        if ticket_input.isdigit():
+            ticket = int(ticket_input)
+            if st.session_state.selected_ticket == ticket:
+                st.session_state.selected_ticket = None
+            else:
+                st.session_state.selected_ticket = ticket
 
         # Apply interactive filter if any ticket is selected
         if st.session_state.selected_ticket:
