@@ -126,7 +126,7 @@ if uploaded_file:
         # SR vs Incident count table
         st.subheader("📊 Summary Counts")
 
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
 
         with col2:
             st.markdown("**🔹 SR vs Incident Count**")
