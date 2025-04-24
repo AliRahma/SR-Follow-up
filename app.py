@@ -200,6 +200,8 @@ if uploaded_file:
             if col not in df_display.columns:
                 df_display[col] = None
         st.dataframe(df_display[shown_cols])
+        
+        plot_sr_status_bar(df_display[df_display['Type'] == "SR"])
 
         # Excel download
         def generate_excel_download(data):
