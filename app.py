@@ -4,8 +4,6 @@ import re
 import io
 import base64
 
-st.set_page_config(page_title="SR Follow up", layout="wide")
-
 def set_background_dark(image_path):
     with open(image_path, "rb") as image_file:
         encoded = base64.b64encode(image_file.read()).decode()
@@ -27,7 +25,7 @@ def set_background_dark(image_path):
         """,
         unsafe_allow_html=True
     )
-
+st.set_page_config(page_title="SR Follow up", layout="wide")
 set_background_dark("GPSSA.jpg")  # Adjust path if needed
 
 #Page setup
