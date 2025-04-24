@@ -5,20 +5,24 @@ import io
 import base64
 
 def set_background(image_file):
-    with open(image_file, "rb") as f:
-        encoded = f.read()
-    base64_img = base64.b64encode(encoded).decode()
-    page_bg_img = f"""
+    import base64
+    with open(image_file, "rb") as image:
+        encoded = base64.b64encode(image.read()).decode()
+    
+    css = f"""
     <style>
     .stApp {{
-        background-image: url("data:image/jpg;base64,{base64_img}");
+        position: relative;
+        background: linear-gradient(rgba(255, 255, 255, 0.8), rgba(255,255,255,0.8)),
+                    url("data:image/jpg;base64,{encoded}");
         background-size: cover;
+        background-position: center;
         background-repeat: no-repeat;
         background-attachment: fixed;
     }}
     </style>
     """
-    st.markdown(page_bg_img, unsafe_allow_html=True)
+    st.markdown(css, unsafe_allow_html=True)
 
 set_background("GPSSA.jpg")  # Replace with your image filename
 #Page setup
