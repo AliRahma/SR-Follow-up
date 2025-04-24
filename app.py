@@ -4,7 +4,7 @@ import re
 import io
 import base64
 
-def set_background(image_file):
+def set_background_dark(image_file):
     import base64
     with open(image_file, "rb") as image:
         encoded = base64.b64encode(image.read()).decode()
@@ -12,18 +12,26 @@ def set_background(image_file):
     css = f"""
     <style>
     .stApp {{
-        background: linear-gradient(rgba(255, 255, 255, 0.4), rgba(255,255,255,0.4)),
+        background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
                     url("data:image/jpg;base64,{encoded}");
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
         background-attachment: fixed;
+        color: #f0f0f0 !important;
+    }}
+    .stMarkdown, .stDataFrame, .stTable, .stSelectbox, .stDownloadButton {{
+        color: #f0f0f0 !important;
+    }}
+    .stDataFrame div {{
+        background-color: rgba(0, 0, 0, 0.5) !important;
     }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
 
-set_background("GPSSA.jpg")  # Replace with your image filename
+set_background_dark("GPSSA.jpg")  # Adjust path if needed
+
 #Page setup
 st.set_page_config(page_title="SR Follow up", layout="wide")
 st.title("📊 SR Analyzer")
