@@ -93,7 +93,7 @@ if uploaded_file:
 
                 # Add SR Status filter to sidebar
                 st.sidebar.markdown("---")
-                sr_status_options = df_filtered['SR Status'].dropna().unique().tolist()
+                sr_status_options = df_filtered['SR Status'].fillna("None").unique().tolist()
                 sr_status_filter = st.sidebar.selectbox("📌 Filter by SR Status", ["All"] + sr_status_options)
 
             except Exception as e:
@@ -110,7 +110,10 @@ if uploaded_file:
         if type_filter != "All":
             df_display = df_display[df_display["Type"] == type_filter]
         if sr_status_filter and sr_status_filter != "All":
-            df_display = df_display[df_display["SR Status"] == sr_status_filter]
+            if sr_status_filter == "None":
+                df_display = df_display[df_display["SR Status"].isna()]
+            else:
+                df_display = df_display[df_display["SR Status"] == sr_status_filter]
 
         # Search
         st.subheader("🔎 Search for Ticket Number")
