@@ -132,45 +132,45 @@ if uploaded_file:
         st.dataframe(df_display[shown_cols])
 
         # Interactive Ticket Analysis
-        if "selected_ticket" not in st.session_state:
-            st.session_state.selected_ticket = None
-
+        # --- Interactive Ticket Analysis Table ---
         st.subheader("🎟️ Ticket-wise Case Summary")
+
+        # Count cases per ticket
         ticket_counts = df_filtered['Ticket Number'].value_counts().reset_index()
         ticket_counts.columns = ['Ticket Number', 'Case Count']
         ticket_counts = ticket_counts.sort_values('Ticket Number')
 
-        # Create columns for the table header
-        col1, col2 = st.columns([1, 1])
-        col1.markdown("**Ticket Number**")
-        col2.markdown("**Case Count**")
+        # Initialize selected ticket in session state
+        if "selected_ticket" not in st.session_state:
+            st.session_state.selected_ticket = None
 
-        # Show clickable tickets
-        for _, row in ticket_counts.iterrows():
-            tkt_col1, tkt_col2 = st.columns([1, 1])
-            ticket_number = int(row["Ticket Number"])
+        # Table-like layout
+        for i, row in ticket_counts.iterrows():
+            cols = st.columns([5, 2])
+            ticket = int(row["Ticket Number"])
+            case_count = row["Case Count"]
             
-            if st.session_state.selected_ticket == ticket_number:
-                btn_label = f"✅ Ticket {ticket_number}"
-            else:
-                btn_label = f"🎫 Ticket {ticket_number}"
+            btn_text = f"🎫 Ticket {ticket}"
+            btn_key = f"ticket_btn_{ticket}"
             
-            if tkt_col1.button(btn_label, key=f"ticket_{ticket_number}"):
-                if st.session_state.selected_ticket == ticket_number:
-                    st.session_state.selected_ticket = None  # Deselect if clicked again
+            # Toggle selection on click
+            if cols[0].button(btn_text, key=btn_key):
+                if st.session_state.selected_ticket == ticket:
+                    st.session_state.selected_ticket = None
                 else:
-                    st.session_state.selected_ticket = ticket_number
+                    st.session_state.selected_ticket = ticket
             
-            tkt_col2.write(f"{row['Case Count']} case(s)")
+            cols[1].markdown(f"**{case_count} case(s)**")
 
-        # Reset filter button
+        # Show clear filter button
         if st.session_state.selected_ticket is not None:
+            st.markdown(f"🔎 **Filtering by Ticket:** `{st.session_state.selected_ticket}`")
             if st.button("❌ Clear Ticket Filter"):
                 st.session_state.selected_ticket = None
 
-        # Apply filter to the main table
+        # Apply ticket filter to displayed table
         if st.session_state.selected_ticket:
-            df_display = df_display[df_display["Ticket Number"] == st.session_state.selected_ticket]
+            df_display = df_display[df_display['Ticket Number'] == st.session_state.selected_ticket]
 
         # Download
         def generate_excel_download(data):
