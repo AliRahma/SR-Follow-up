@@ -4,27 +4,32 @@ import re
 import io
 import base64
 
-def set_background_dark(image_path):
-    with open(image_path, "rb") as image_file:
-        encoded = base64.b64encode(image_file.read()).decode()
-
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background: url("data:image/jpeg;base64,{encoded}") no-repeat center center fixed;
-            background-size: cover;
-            filter: brightness(0.25); /* Darken the image a bit */
-        }}
-        .block-container {{
-            background-color: rgba(0, 0, 0, 0.8);
-            padding: 2rem;
-            border-radius: 10px;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+def set_background_dark(image_file):
+    import base64
+    with open(image_file, "rb") as image:
+        encoded = base64.b64encode(image.read()).decode()
+    
+    css = f"""
+    <style>
+    .stApp {{
+        background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
+                    url("data:image/jpg;base64,{encoded}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        color: #f0f0f0 !important;
+    }}
+    .stMarkdown, .stDataFrame, .stTable, .stSelectbox, .stDownloadButton {{
+        color: #f0f0f0 !important;
+    }}
+    .stDataFrame div {{
+        background-color: rgba(0, 0, 0, 0.5) !important;
+    }}
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
+    
 st.set_page_config(page_title="SR Follow up", layout="wide")
 set_background_dark("GPSSA.jpg")  # Adjust path if needed
 
