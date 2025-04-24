@@ -96,6 +96,40 @@ if uploaded_file:
         if sr_status_filter != "All":
             df_display = df_display[df_display["SR Status"] == sr_status_filter]
 
+        # Summary Sections
+        st.subheader("📊 Summary Counts")
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown("**🔸 Triage Status Count**")
+            triage_summary = df_filtered['Status'].value_counts().loc[['Pending SR/Incident', 'Not Triaged']]
+            triage_df = triage_summary.rename_axis('Triage Status').reset_index(name='Count')
+            triage_total = pd.DataFrame([{'Triage Status': 'Total', 'Count': triage_df['Count'].sum()}])
+            df_triage = pd.concat([triage_df, triage_total], ignore_index=True)
+            st.dataframe(df_triage.style.apply(lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(df_triage)-1 else '' for _ in x], axis=1))
+
+        with col2:
+            st.markdown("**🔹 SR vs Incident Count**")
+            type_summary = df_filtered['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
+            type_total = pd.DataFrame([{'Type': 'Total', 'Count': type_summary['Count'].sum()}])
+            type_df = pd.concat([type_summary, type_total], ignore_index=True)
+            st.dataframe(type_df.style.apply(lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(type_df)-1 else '' for _ in x], axis=1))
+
+        with col3:
+            st.markdown("**🟢 SR Status Count**")
+            sr_status_summary = df_filtered['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Count')
+            sr_total = pd.DataFrame([{'SR Status': 'Total', 'Count': sr_status_summary['Count'].sum()}])
+            sr_df = pd.concat([sr_status_summary, sr_total], ignore_index=True)
+            st.dataframe(sr_df.style.apply(lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(sr_df)-1 else '' for _ in x], axis=1))
+
+        # Filtered results
+        st.subheader("📋 Filtered Results")
+        st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
+        shown_cols = ['Ticket Number', 'Case Id', 'Last Note', 'Current User Id', 'SR Status', 'Last Update']
+        for col in shown_cols:
+            if col not in df_display.columns:
+                df_display[col] = None
+        st.dataframe(df_display[shown_cols])
         # Interactive Ticket Analysis
         st.subheader("🎯 Ticket-wise Case Count")
         ticket_counts = df_filtered['Ticket Number'].value_counts().rename_axis('Ticket Number').reset_index(name='Case Count')
@@ -160,42 +194,6 @@ if uploaded_file:
         # Apply interactive filter if any ticket is selected
         if st.session_state.selected_ticket:
             df_display = df_display[df_display['Ticket Number'] == st.session_state.selected_ticket]
-
-        # Summary Sections
-        st.subheader("📊 Summary Counts")
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            st.markdown("**🔸 Triage Status Count**")
-            triage_summary = df_filtered['Status'].value_counts().loc[['Pending SR/Incident', 'Not Triaged']]
-            triage_df = triage_summary.rename_axis('Triage Status').reset_index(name='Count')
-            triage_total = pd.DataFrame([{'Triage Status': 'Total', 'Count': triage_df['Count'].sum()}])
-            df_triage = pd.concat([triage_df, triage_total], ignore_index=True)
-            st.dataframe(df_triage.style.apply(lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(df_triage)-1 else '' for _ in x], axis=1))
-
-        with col2:
-            st.markdown("**🔹 SR vs Incident Count**")
-            type_summary = df_filtered['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
-            type_total = pd.DataFrame([{'Type': 'Total', 'Count': type_summary['Count'].sum()}])
-            type_df = pd.concat([type_summary, type_total], ignore_index=True)
-            st.dataframe(type_df.style.apply(lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(type_df)-1 else '' for _ in x], axis=1))
-
-        with col3:
-            st.markdown("**🟢 SR Status Count**")
-            sr_status_summary = df_filtered['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Count')
-            sr_total = pd.DataFrame([{'SR Status': 'Total', 'Count': sr_status_summary['Count'].sum()}])
-            sr_df = pd.concat([sr_status_summary, sr_total], ignore_index=True)
-            st.dataframe(sr_df.style.apply(lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(sr_df)-1 else '' for _ in x], axis=1))
-
-        # Filtered results
-        st.subheader("📋 Filtered Results")
-        st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
-        shown_cols = ['Ticket Number', 'Case Id', 'Last Note', 'Current User Id', 'SR Status', 'Last Update']
-        for col in shown_cols:
-            if col not in df_display.columns:
-                df_display[col] = None
-        st.dataframe(df_display[shown_cols])
-
         # Download
         def generate_excel_download(data):
             output = io.BytesIO()
