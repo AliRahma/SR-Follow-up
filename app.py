@@ -158,12 +158,14 @@ if uploaded_file:
         with col3:
             st.markdown("**🟢 SR Status Summary (All & Unique)**")
             if sr_status_file and 'SR Status' in df_filtered.columns and 'Ticket Number' in df_filtered.columns:
+                # Drop rows where SR Status is NaN
+                df_status_valid = df_filtered.dropna(subset=['SR Status'])
+
                 # All SR status count
-                sr_all_counts = df_filtered['SR Status'].fillna("None").value_counts().rename_axis('SR Status').reset_index(name='All SR Count')
+                sr_all_counts = df_status_valid['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='All SR Count')
 
                 # Unique SRs
-                sr_unique = df_filtered.dropna(subset=['Ticket Number'])[['Ticket Number', 'SR Status']].drop_duplicates()
-                sr_unique['SR Status'] = sr_unique['SR Status'].fillna("None")
+                sr_unique = df_status_valid.dropna(subset=['Ticket Number'])[['Ticket Number', 'SR Status']].drop_duplicates()
                 sr_unique_counts = sr_unique['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Unique SR Count')
 
                 # Merge both summaries
@@ -188,6 +190,7 @@ if uploaded_file:
                 )
             else:
                 st.info("Upload SR Status file to view this summary.")
+
         # Final result table
         st.subheader("📋 Filtered Results")
         st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
