@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 import io
+import base64
 
 def set_background(image_file):
     with open(image_file, "rb") as f:
