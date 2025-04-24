@@ -179,9 +179,9 @@ if uploaded_file:
                         height = bar.get_height()
                         ax.annotate(f'{height}', xy=(bar.get_x() + bar.get_width() / 2, height),
                                     xytext=(0, 3), textcoords="offset points",
-                                    ha='center', va='bottom', fontsize=9, color='black')
+                                    ha='center', va='bottom', fontsize=3, color='black')
 
-                    ax.set_title("SR Status Distribution", fontsize=14, fontweight='bold')
+                    ax.set_title("SR Status Distribution", fontsize=6, fontweight='bold')
                     ax.set_ylabel("Count")
                     ax.set_xlabel("SR Status")
                     plt.xticks(rotation=30, ha='right')
