@@ -31,7 +31,7 @@ def set_background_dark(image_file):
     st.markdown(css, unsafe_allow_html=True)
     
 st.set_page_config(page_title="SR Follow up", layout="wide")
-set_background_dark("GPSSA.jpg")  # Adjust path if needed
+# set_background_dark("GPSSA.jpg")  # Adjust path if needed
 
 #Page setup
 st.title("📊 SR Analyzer")
