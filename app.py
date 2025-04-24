@@ -171,22 +171,23 @@ if uploaded_file:
                     # Colors: from red to orange
                     colors = plt.cm.autumn_r([i / len(status_counts) for i in range(len(status_counts))])
 
-                    fig, ax = plt.subplots(figsize=(2, 1))
+                    fig, ax = plt.subplots(figsize=(2, 3))
                     bars = ax.bar(status_counts.index, status_counts.values, color=colors, edgecolor='black')
 
                     # Add count labels on top of bars
                     for bar in bars:
                         height = bar.get_height()
                         ax.annotate(f'{height}', xy=(bar.get_x() + bar.get_width() / 2, height),
-                                    xytext=(0, 3), textcoords="offset points",
-                                    ha='center', va='bottom', fontsize=3, color='black')
+                                    xytext=(0, 1), textcoords="offset points",
+                                    ha='center', va='bottom', fontsize=6, color='black')
 
-                    ax.set_title("SR Status Distribution", fontsize=6, fontweight='bold')
-                    ax.set_ylabel("Count")
-                    ax.set_xlabel("SR Status")
-                    plt.xticks(rotation=30, ha='right')
+                    # Small fonts and layout tweaks for compact look
+                    ax.set_title("SR Status", fontsize=7, fontweight='bold', loc='left')
+                    ax.set_ylabel("Count", fontsize=6)
+                    ax.set_xlabel("SR Status", fontsize=6)
+                    ax.tick_params(axis='x', labelrotation=45, labelsize=5)
+                    ax.tick_params(axis='y', labelsize=6)
                     plt.tight_layout()
-
                     st.pyplot(fig)
             else:
                 st.info("Upload SR Status file to view this summary.")
