@@ -4,6 +4,8 @@ import re
 import io
 import base64
 
+st.set_page_config(page_title="SR Follow up", layout="wide")
+
 def set_background_dark(image_file):
     import base64
     with open(image_file, "rb") as image:
@@ -33,7 +35,6 @@ def set_background_dark(image_file):
 set_background_dark("GPSSA.jpg")  # Adjust path if needed
 
 #Page setup
-st.set_page_config(page_title="SR Follow up", layout="wide")
 st.title("📊 SR Analyzer")
 
 # Sidebar uploads
