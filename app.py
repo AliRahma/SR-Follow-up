@@ -3,6 +3,7 @@ import pandas as pd
 import re
 import io
 import base64
+import matplotlib.pyplot as plt
 
 def set_background_dark(image_file):
     import base64
@@ -164,6 +165,29 @@ if uploaded_file:
                         axis=1
                     )
                 )
+                def plot_sr_status_bar(df):
+                    status_counts = df['SR Status'].value_counts()
+
+                    # Colors: from red to orange
+                    colors = plt.cm.autumn_r([i / len(status_counts) for i in range(len(status_counts))])
+
+                    fig, ax = plt.subplots(figsize=(8, 4))
+                    bars = ax.bar(status_counts.index, status_counts.values, color=colors, edgecolor='black')
+
+                    # Add count labels on top of bars
+                    for bar in bars:
+                        height = bar.get_height()
+                        ax.annotate(f'{height}', xy=(bar.get_x() + bar.get_width() / 2, height),
+                                    xytext=(0, 3), textcoords="offset points",
+                                    ha='center', va='bottom', fontsize=9, color='black')
+
+                    ax.set_title("SR Status Distribution", fontsize=14, fontweight='bold')
+                    ax.set_ylabel("Count")
+                    ax.set_xlabel("SR Status")
+                    plt.xticks(rotation=30, ha='right')
+                    plt.tight_layout()
+
+                    st.pyplot(fig)
             else:
                 st.info("Upload SR Status file to view this summary.")
         # Final result table
