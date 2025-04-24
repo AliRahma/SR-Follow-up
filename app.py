@@ -21,7 +21,7 @@ def set_background(image_file):
 
 set_background("GPSSA.jpg")  # Replace with your image filename
 st.image("GPSSA.jpg")
-Page setup
+#Page setup
 st.set_page_config(page_title="SR Follow up", layout="wide")
 st.title("📊 SR Analyzer123")
 
