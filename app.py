@@ -3,6 +3,26 @@ import pandas as pd
 import re
 import io
 
+def set_background(image_file):
+    with open(image_file, "rb") as f:
+        encoded = f.read()
+    base64_img = base64.b64encode(encoded).decode()
+    page_bg_img = f"""
+    <style>
+    .stApp {{
+        background-image: url("C:\Users\Ali.babiker\Downloads;base64,{base64_img}");
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+    </style>
+    """
+    st.markdown(page_bg_img, unsafe_allow_html=True)
+
+import base64
+
+set_background("GPSSA.jpg")  # Replace with your image filename
+
 # Page setup
 st.set_page_config(page_title="Excel Incident Analyzer", layout="wide")
 st.title("📊 SR Analyzer")
