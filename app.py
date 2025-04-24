@@ -131,6 +131,15 @@ if uploaded_file:
                 df_display[col] = None
         st.dataframe(df_display[shown_cols])
 
+        # Download
+        def generate_excel_download(data):
+            output = io.BytesIO()
+            writer = pd.ExcelWriter(output, engine='xlsxwriter')
+            data.to_excel(writer, index=False, sheet_name='Results')
+            writer.close()
+            output.seek(0)
+            return output
+
         excel_data = generate_excel_download(df_display[shown_cols])
         st.download_button("📥 Download Filtered Data to Excel", data=excel_data, file_name="filtered_results.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
