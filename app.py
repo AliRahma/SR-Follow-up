@@ -22,8 +22,8 @@ import io
 # set_background("GPSSA.jpg")  # Replace with your image filename
 # st.image("GPSSA.jpg")
 # Page setup
-st.set_page_config(page_title="SR Follow up", layout="wide")
-st.title("📊 SR Analyzer123")
+# st.set_page_config(page_title="SR Follow up", layout="wide")
+# st.title("📊 SR Analyzer123")
 
 # Sidebar uploads
 uploaded_file = st.sidebar.file_uploader("📂 Upload Main Excel File (.xlsx)", type="xlsx")
