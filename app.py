@@ -156,28 +156,30 @@ if uploaded_file:
             )
 
         with col3:
-            st.markdown("**🟢 SR Status Count**")
-            if 'SR Status' in df_filtered.columns:
-                sr_status_summary = df_filtered['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Count')
-                sr_status_total = pd.DataFrame([{'SR Status': 'Total', 'Count': sr_status_summary['Count'].sum()}])
-                sr_df = pd.concat([sr_status_summary, sr_status_total], ignore_index=True)
-
-                st.dataframe(
-                    sr_df.style.apply(
-                        lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(sr_df)-1 else '' for _ in x],
-                        axis=1
-                    )
-                )
-            else:
-                st.info("Upload SR Status file to view this summary.")
-        with col4:
-            st.markdown("**🟢 SR Status Count (Unique SRs)**")
+            st.markdown("**🟢 SR Status Summary (All & Unique)**")
             if sr_status_file and 'SR Status' in df_filtered.columns and 'Ticket Number' in df_filtered.columns:
-                sr_unique = df_filtered.dropna(subset=['Ticket Number', 'SR Status'])[['Ticket Number', 'SR Status']].drop_duplicates()
-                sr_status_summary = sr_unique['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Unique SR Count')
-                sr_status_total = pd.DataFrame([{'SR Status': 'Total', 'Unique SR Count': sr_status_summary['Unique SR Count'].sum()}])
-                sr_summary_df = pd.concat([sr_status_summary, sr_status_total], ignore_index=True)
+                # All SR status count
+                sr_all_counts = df_filtered['SR Status'].fillna("None").value_counts().rename_axis('SR Status').reset_index(name='All SR Count')
 
+                # Unique SRs
+                sr_unique = df_filtered.dropna(subset=['Ticket Number'])[['Ticket Number', 'SR Status']].drop_duplicates()
+                sr_unique['SR Status'] = sr_unique['SR Status'].fillna("None")
+                sr_unique_counts = sr_unique['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Unique SR Count')
+
+                # Merge both summaries
+                merged_sr = pd.merge(sr_all_counts, sr_unique_counts, on='SR Status', how='outer').fillna(0)
+                merged_sr[['All SR Count', 'Unique SR Count']] = merged_sr[['All SR Count', 'Unique SR Count']].astype(int)
+
+                # Total row
+                total_row = pd.DataFrame([{
+                    'SR Status': 'Total',
+                    'All SR Count': merged_sr['All SR Count'].sum(),
+                    'Unique SR Count': merged_sr['Unique SR Count'].sum()
+                }])
+
+                sr_summary_df = pd.concat([merged_sr, total_row], ignore_index=True)
+
+                # Display
                 st.dataframe(
                     sr_summary_df.style.apply(
                         lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(sr_summary_df)-1 else '' for _ in x],
