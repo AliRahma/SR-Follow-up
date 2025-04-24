@@ -123,7 +123,7 @@ if uploaded_file:
         # SR vs Incident count table
         st.subheader("📊 Summary Counts")
 
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
 
         with col2:
             st.markdown("**🔹 SR vs Incident Count**")
@@ -162,6 +162,21 @@ if uploaded_file:
                 st.dataframe(
                     sr_df.style.apply(
                         lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(sr_df)-1 else '' for _ in x],
+                        axis=1
+                    )
+                )
+            else:
+                st.info("Upload SR Status file to view this summary.")
+        with col4:
+            if sr_status_file and 'SR Status' in df_filtered.columns and 'Ticket Number' in df_filtered.columns:
+                sr_unique = df_filtered.dropna(subset=['Ticket Number', 'SR Status'])[['Ticket Number', 'SR Status']].drop_duplicates()
+                sr_status_summary = sr_unique['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Unique SR Count')
+                sr_status_total = pd.DataFrame([{'SR Status': 'Total', 'Unique SR Count': sr_status_summary['Unique SR Count'].sum()}])
+                sr_summary_df = pd.concat([sr_status_summary, sr_status_total], ignore_index=True)
+
+                st.dataframe(
+                    sr_summary_df.style.apply(
+                        lambda x: ['background-color: #cce5ff; font-weight: bold' if x.name == len(sr_summary_df)-1 else '' for _ in x],
                         axis=1
                     )
                 )
