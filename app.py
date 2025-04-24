@@ -10,7 +10,7 @@ def set_background(image_file):
     page_bg_img = f"""
     <style>
     .stApp {{
-        background-image: url("C:\Users\Ali.babiker\Downloads;base64,{base64_img}");
+        background-image: url("data:image/jpg;base64,{base64_img}");
         background-size: cover;
         background-repeat: no-repeat;
         background-attachment: fixed;
@@ -19,9 +19,7 @@ def set_background(image_file):
     """
     st.markdown(page_bg_img, unsafe_allow_html=True)
 
-import base64
-
-set_background("GPSSA.jpg")  # Replace with your image filename
+set_background("C:\Users\Ali.babiker\Downloads\GPSSA.jpg")  # Replace with your image filename
 
 # Page setup
 st.set_page_config(page_title="Excel Incident Analyzer", layout="wide")
