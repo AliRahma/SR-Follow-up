@@ -131,56 +131,6 @@ if uploaded_file:
                 df_display[col] = None
         st.dataframe(df_display[shown_cols])
 
-        # Interactive Ticket Analysis
-        # --- Interactive Ticket Analysis Table ---
-        st.subheader("🎟️ Ticket-wise Case Summary")
-
-        # Count cases per ticket
-        ticket_counts = df_filtered['Ticket Number'].value_counts().reset_index()
-        ticket_counts.columns = ['Ticket Number', 'Case Count']
-        ticket_counts = ticket_counts.sort_values('Ticket Number')
-
-        # Initialize selected ticket in session state
-        if "selected_ticket" not in st.session_state:
-            st.session_state.selected_ticket = None
-
-        # Table-like layout
-        for i, row in ticket_counts.iterrows():
-            cols = st.columns([5, 2])
-            ticket = int(row["Ticket Number"])
-            case_count = row["Case Count"]
-            
-            btn_text = f"🎫 Ticket {ticket}"
-            btn_key = f"ticket_btn_{ticket}"
-            
-            # Toggle selection on click
-            if cols[0].button(btn_text, key=btn_key):
-                if st.session_state.selected_ticket == ticket:
-                    st.session_state.selected_ticket = None
-                else:
-                    st.session_state.selected_ticket = ticket
-            
-            cols[1].markdown(f"**{case_count} case(s)**")
-
-        # Show clear filter button
-        if st.session_state.selected_ticket is not None:
-            st.markdown(f"🔎 **Filtering by Ticket:** `{st.session_state.selected_ticket}`")
-            if st.button("❌ Clear Ticket Filter"):
-                st.session_state.selected_ticket = None
-
-        # Apply ticket filter to displayed table
-        if st.session_state.selected_ticket:
-            df_display = df_display[df_display['Ticket Number'] == st.session_state.selected_ticket]
-
-        # Download
-        def generate_excel_download(data):
-            output = io.BytesIO()
-            writer = pd.ExcelWriter(output, engine='xlsxwriter')
-            data.to_excel(writer, index=False, sheet_name='Results')
-            writer.close()
-            output.seek(0)
-            return output
-
         excel_data = generate_excel_download(df_display[shown_cols])
         st.download_button("📥 Download Filtered Data to Excel", data=excel_data, file_name="filtered_results.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
