@@ -3,6 +3,7 @@ import pandas as pd
 import re
 import io
 import base64
+import streamlit.components.v1 as components
 
 # Page must be set at the top
 st.set_page_config(page_title="SR Follow up", layout="wide")
