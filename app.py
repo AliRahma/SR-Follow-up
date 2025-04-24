@@ -130,70 +130,48 @@ if uploaded_file:
             if col not in df_display.columns:
                 df_display[col] = None
         st.dataframe(df_display[shown_cols])
+
         # Interactive Ticket Analysis
-        st.subheader("🎯 Ticket-wise Case Count")
-        ticket_counts = df_filtered['Ticket Number'].value_counts().rename_axis('Ticket Number').reset_index(name='Case Count')
+        if "selected_ticket" not in st.session_state:
+            st.session_state.selected_ticket = None
 
-        def handle_ticket_click(ticket):
-            if st.session_state.selected_ticket == ticket:
-                st.session_state.selected_ticket = None
-            else:
-                st.session_state.selected_ticket = ticket
-
-        st.markdown("**🎟️ Click on a ticket to filter the results:**")
-
+        st.subheader("🎟️ Ticket-wise Case Summary")
+        ticket_counts = df_filtered['Ticket Number'].value_counts().reset_index()
+        ticket_counts.columns = ['Ticket Number', 'Case Count']
         ticket_counts = ticket_counts.sort_values('Ticket Number')
-        ticket_html = """
-        <style>
-        .ticket-table td {{
-            padding: 6px 12px;
-            border: 1px solid #999;
-        }}
-        .ticket-table tr:hover {{
-            background-color: #444;
-            cursor: pointer;
-        }}
-        </style>
-        <table class='ticket-table'>
-            <tr><th>Ticket Number</th><th>Case Count</th></tr>
-        """
+
+        # Create columns for the table header
+        col1, col2 = st.columns([1, 1])
+        col1.markdown("**Ticket Number**")
+        col2.markdown("**Case Count**")
+
+        # Show clickable tickets
         for _, row in ticket_counts.iterrows():
-            ticket = int(row["Ticket Number"])
-            count = row["Case Count"]
-            selected = st.session_state.selected_ticket == ticket
-            row_color = "style='background-color: #0078D4; color: white;'" if selected else ""
-            ticket_html += f"""
-            <tr onclick="document.dispatchEvent(new CustomEvent('select-ticket', {{ detail: '{ticket}' }}));" {row_color}>
-                <td>{ticket}</td><td>{count}</td>
-            </tr>
-            """
-        ticket_html += "</table>"
-
-        components.html(ticket_html + """
-        <script>
-        document.addEventListener("select-ticket", function(e) {
-            const ticket = e.detail;
-            const input = window.parent.document.querySelector('input[data-testid="ticket-filter"]');
-            if (input) {{
-                input.value = ticket;
-                input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-            }}
-        });
-        </script>
-        """, height=400)
-
-        # Simulate ticket filtering via hidden input
-        ticket_input = st.text_input("Click a row to filter by Ticket Number", key="ticket-filter", label_visibility="collapsed")
-        if ticket_input.isdigit():
-            ticket = int(ticket_input)
-            if st.session_state.selected_ticket == ticket:
-                st.session_state.selected_ticket = None
+            tkt_col1, tkt_col2 = st.columns([1, 1])
+            ticket_number = int(row["Ticket Number"])
+            
+            if st.session_state.selected_ticket == ticket_number:
+                btn_label = f"✅ Ticket {ticket_number}"
             else:
-                st.session_state.selected_ticket = ticket
+                btn_label = f"🎫 Ticket {ticket_number}"
+            
+            if tkt_col1.button(btn_label, key=f"ticket_{ticket_number}"):
+                if st.session_state.selected_ticket == ticket_number:
+                    st.session_state.selected_ticket = None  # Deselect if clicked again
+                else:
+                    st.session_state.selected_ticket = ticket_number
+            
+            tkt_col2.write(f"{row['Case Count']} case(s)")
 
-        # Apply interactive filter if any ticket is selected
+        # Reset filter button
+        if st.session_state.selected_ticket is not None:
+            if st.button("❌ Clear Ticket Filter"):
+                st.session_state.selected_ticket = None
+
+        # Apply filter to the main table
         if st.session_state.selected_ticket:
-            df_display = df_display[df_display['Ticket Number'] == st.session_state.selected_ticket]
+            df_display = df_display[df_display["Ticket Number"] == st.session_state.selected_ticket]
+
         # Download
         def generate_excel_download(data):
             output = io.BytesIO()
