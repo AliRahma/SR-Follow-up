@@ -20,7 +20,7 @@ def set_background(image_file):
     st.markdown(page_bg_img, unsafe_allow_html=True)
 
 set_background("GPSSA.jpg")  # Replace with your image filename
-
+st.image("background.jpg")
 # Page setup
 st.set_page_config(page_title="Excel Incident Analyzer", layout="wide")
 st.title("📊 SR Analyzer")
