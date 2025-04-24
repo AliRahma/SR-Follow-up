@@ -168,6 +168,7 @@ if uploaded_file:
             else:
                 st.info("Upload SR Status file to view this summary.")
         with col4:
+            st.markdown("**🟢 SR Status Count (Unique SRs)**")
             if sr_status_file and 'SR Status' in df_filtered.columns and 'Ticket Number' in df_filtered.columns:
                 sr_unique = df_filtered.dropna(subset=['Ticket Number', 'SR Status'])[['Ticket Number', 'SR Status']].drop_duplicates()
                 sr_status_summary = sr_unique['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Unique SR Count')
