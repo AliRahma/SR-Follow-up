@@ -194,7 +194,7 @@ if uploaded_file:
         # Final result table
         st.subheader("📋 Filtered Results")
         st.markdown(f"**Total Filtered Rows:** {df_display.shape[0]}")
-        shown_cols = ['Ticket Number', 'Case Id', 'Last Note', 'Current User Id']
+        shown_cols = ['Ticket Number', 'Case Id', 'Last Note','Case Start Date', 'Current User Id']
         if 'SR Status' in df_display.columns and 'Last Update' in df_display.columns:
             shown_cols += ['SR Status', 'Last Update']
         for col in shown_cols:
