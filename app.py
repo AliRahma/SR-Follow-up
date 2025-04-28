@@ -126,7 +126,7 @@ if uploaded_file:
         # SR vs Incident count table
         st.subheader("📊 Summary Counts")
 
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
 
         with col2:
             st.markdown("**🔹 SR vs Incident Count**")
@@ -188,6 +188,15 @@ if uploaded_file:
                         axis=1
                     )
                 )
+        with col4:
+            # Pie chart for status distribution
+            if 'SR Status' in df_filtered.columns:
+                status_counts = df_filtered['SR Status'].value_counts()
+                fig, ax = plt.subplots(figsize=(8, 6))
+                ax.pie(status_counts, labels=status_counts.index, autopct='%1.1f%%', startangle=90)
+                ax.axis('equal')
+                plt.title('SR Status Distribution')
+                st.pyplot(fig)
             else:
                 st.info("Upload SR Status file to view this summary.")
 
