@@ -38,7 +38,7 @@ st.set_page_config(page_title="SR Follow up", layout="wide")
 st.title("📊 SR Analyzer")
 
 # Sidebar uploads
-uploaded_file = st.sidebar.file_uploader("📂 Upload Main Excel File (.xlsx)", type="xlsx")
+uploaded_file = st.sidebar.file_uploader("📂 Upload Main Excel File (.xlsx)", type=["xlsx", "xls"])
 sr_status_file = st.sidebar.file_uploader("📂 Upload SR Status Excel (optional)", type="xlsx")
 
 # Initialize filter variable
