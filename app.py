@@ -6,7 +6,6 @@ import io
 import base64
 from datetime import datetime, timedelta
 from streamlit_option_menu import option_menu
-from datetime import date
 
 # Set page configuration
 st.set_page_config(
@@ -173,18 +172,7 @@ def is_created_today(date_value):
     if pd.isna(date_value):
         return False
     today = datetime.now().date()
-    
-    # Convert to date if it's a datetime
-    if isinstance(date_value, datetime):
-        note_date = date_value.date()
-    else:
-        # Try to parse as date if it's another format
-        try:
-            note_date = pd.to_datetime(date_value).date()
-        except:
-            return False
-    
-    # Check if date matches today
+    note_date = date_value.date() if isinstance(date_value, datetime) else date_value
     return note_date == today
 
 # Function to create downloadable Excel
@@ -304,9 +292,9 @@ with st.sidebar:
 
 # Main content
 if not st.session_state.data_loaded:
-    st.title("📊 SR Analyzer Pro")
+    st.title("📊 SR Analyzer Pro Test")
     st.markdown("""
-    ### Welcome to the SR Analyzer Pro!
+    ### Welcome to the SR Analyzer Pro Test!
     
     This application helps you analyze Service Requests and Incidents efficiently.
     
@@ -860,17 +848,10 @@ else:
     #
     elif selected == "Today's SR/Incidents":
         st.title("📆 Today's New SR/Incidents")
-    
-    # Count of 'Created Today' flags
-    if 'Created Today' in df_enriched.columns:
-        today_count = df_enriched['Created Today'].sum()
-        st.write(f"Records flagged as 'Created Today': {today_count}")
-    else:
-        st.write("WARNING: 'Created Today' column not found")
-
+        
         # Get all items created today
         df_today = df_enriched[df_enriched['Created Today'] == True].copy()
-            
+        
         # Display summary statistics
         st.subheader("📊 Today's Activity Summary")
         
@@ -943,11 +924,11 @@ else:
                 )
             
             # Display columns
-            display_cols = ['Case Id', 'Current User Id', 'Case Start Date', 'Status', 'Type', 'Ticket Number']
+            display_cols = ['Case Id', 'Case Start Date','Last Note', 'Last Note Date', 'Status', 'Type', 'Ticket Number']
             
             # Include SR Status if available
             if 'SR Status' in df_today_filtered.columns:
-                display_cols.extend(['SR Status', 'Last Update'])
+                display_cols.extend(['SR Status', 'Last Note Date'])
             
             # Filter columns that exist in the dataframe
             display_cols = [col for col in display_cols if col in df_today_filtered.columns]
