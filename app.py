@@ -966,23 +966,6 @@ else:
                         ]
                     }
                     
-                    # Add SR-related details
-                    if 'Ticket Number' in today_case_row and not pd.isna(today_case_row['Ticket Number']):
-                        details["Field"].extend(["Ticket Number", "Type"])
-                        details["Value"].extend([
-                            int(today_case_row['Ticket Number']),
-                            today_case_row['Type'] if not pd.isna(today_case_row['Type']) else 'N/A'
-                        ])
-                    
-                    # Add SR status if available
-                    if 'SR Status' in today_case_row and not pd.isna(today_case_row['SR Status']):
-                        details["Field"].append("SR Status")
-                        details["Value"].append(today_case_row['SR Status'])
-                        
-                        if 'Last Update' in today_case_row and not pd.isna(today_case_row['Last Update']):
-                            details["Field"].append("Last Update")
-                            details["Value"].append(today_case_row['Last Update'])
-                    
                     # Show case details table
                     st.table(pd.DataFrame(details))
                 
