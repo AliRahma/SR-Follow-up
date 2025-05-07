@@ -9,7 +9,7 @@ from streamlit_option_menu import option_menu
 
 # Set page configuration
 st.set_page_config(
-    page_title="SR Analyzer Pro Test",
+    page_title="SR Analyzer Pro",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -231,7 +231,7 @@ def bulk_track_toggle(df, case_ids):
 
 # Sidebar - File Upload Section
 with st.sidebar:
-    st.title("📊 SR Analyzer Pro Test")
+    st.title("📊 SR Analyzer Pro")
     st.markdown("---")
 
     st.subheader("📁 Data Import")
@@ -292,9 +292,9 @@ with st.sidebar:
 
 # Main content
 if not st.session_state.data_loaded:
-    st.title("📊 SR Analyzer Pro Test")
+    st.title("📊 SR Analyzer Pro")
     st.markdown("""
-    ### Welcome to the SR Analyzer Pro Test!
+    ### Welcome to the SR Analyzer Pro!
     
     This application helps you analyze Service Requests and Incidents efficiently.
     
@@ -926,9 +926,9 @@ else:
             # Display columns
             display_cols = ['Case Id', 'Case Start Date','Last Note', 'Last Note Date', 'Status', 'Type', 'Ticket Number']
             
-            # # Include SR Status if available
-            # if 'SR Status' in df_today_filtered.columns:
-            #     display_cols.extend(['SR Status', 'Last Note Date'])
+            # Include SR Status if available
+            if 'SR Status' in df_today_filtered.columns:
+                display_cols.extend(['SR Status', 'Last Note Date'])
             
             # Filter columns that exist in the dataframe
             display_cols = [col for col in display_cols if col in df_today_filtered.columns]
