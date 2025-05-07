@@ -864,7 +864,7 @@ else:
         if 'Last Note Date' in df_enriched.columns:
             unique_dates = df_enriched['Last Note Date'].dt.date.unique()
             clean_dates = [d for d in unique_dates if pd.notnull(d)]
-            st.write("Available dates in data:", sorted(unique_dates))
+            st.write("Available dates in data:", unique_dates)
             
             # Check if there are today's dates
             today = datetime.now().date()
