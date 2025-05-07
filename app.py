@@ -931,7 +931,7 @@ else:
             #     display_cols.extend(['SR Status', 'Last Note Date'])
             
             # Filter columns that exist in the dataframe
-            # display_cols = [col for col in display_cols if col in df_today_filtered.columns]
+            display_cols = [col for col in display_cols if col in df_today_filtered.columns]
             
             # # Display the data
             # st.dataframe(df_today_filtered[display_cols], hide_index=True)
