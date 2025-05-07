@@ -863,7 +863,7 @@ else:
 
         # Check Last Updated field specifically
         if '"Last Note Date"' in df_main.columns:
-            st.write("Last Updated values (first 5):", df_main['"Last Note Date"'].head())
+            st.write("Last Note Date values (first 5):", df_main['"Last Note Date"'].head())
         else:
             st.write("WARNING: 'Last Updated' field not found!")
         # Get all items created today
