@@ -865,6 +865,7 @@ else:
     if 'Created Today' in df_enriched.columns:
         today_count = df_enriched['Created Today'].sum()
         st.write(f"Records flagged as 'Created Today': {today_count}")
+        st.write(f"Rows'Created Today': {df_enriched['Created Today']}")
     else:
         st.write("WARNING: 'Created Today' column not found")
 
