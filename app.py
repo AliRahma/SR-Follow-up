@@ -860,19 +860,6 @@ else:
     #
     elif selected == "Today's SR/Incidents":
         st.title("📆 Today's New SR/Incidents")
-        
-        ########DEEEBUUUUUG
-        st.write("Today's date:", datetime.now().date())
-    if 'Last Note Date' in df_enriched.columns:
-        unique_dates = df_enriched['Last Note Date'].dropna().dt.date.astype(str).unique()
-        st.write("Available dates in data:", sorted(unique_dates))
-        
-        # Check if there are today's dates
-        today = datetime.now().date()
-        has_today = today in unique_dates
-        st.write(f"Does data contain today's date? {has_today}")
-    else:
-        st.write("WARNING: 'Last Note Date' column not found")
     
     # Count of 'Created Today' flags
     if 'Created Today' in df_enriched.columns:
