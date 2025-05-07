@@ -859,7 +859,27 @@ else:
     #
     elif selected == "Today's SR/Incidents":
         st.title("📆 Today's New SR/Incidents")
-                
+        
+        ########DEEEBUUUUUG
+        st.write("Today's date:", datetime.now().date())
+    if 'Last Updated' in df_enriched.columns:
+        unique_dates = df_enriched['Last Updated'].dt.date.unique()
+        st.write("Available dates in data:", sorted(unique_dates))
+        
+        # Check if there are today's dates
+        today = datetime.now().date()
+        has_today = today in unique_dates
+        st.write(f"Does data contain today's date? {has_today}")
+    else:
+        st.write("WARNING: 'Last Updated' column not found")
+    
+    # Count of 'Created Today' flags
+    if 'Created Today' in df_enriched.columns:
+        today_count = df_enriched['Created Today'].sum()
+        st.write(f"Records flagged as 'Created Today': {today_count}")
+    else:
+        st.write("WARNING: 'Created Today' column not found")
+
         # Get all items created today
         df_today = df_enriched[df_enriched['Created Today'] == True].copy()
             
