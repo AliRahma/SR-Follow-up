@@ -363,7 +363,7 @@ else:
             df_enriched['Age (Days)'] = df_enriched['Case Start Date'].apply(calculate_age)
         
         # Determine if note was created today
-        if 'Last Updated' in df_enriched.columns:
+        if 'Last Note Date' in df_enriched.columns:
             df_enriched['Created Today'] = df_enriched['Last Note Date'].apply(is_created_today)
         
         # Merge with SR status data if available
