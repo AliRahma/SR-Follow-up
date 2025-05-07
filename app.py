@@ -859,17 +859,7 @@ else:
     #
     elif selected == "Today's SR/Incidents":
         st.title("📆 Today's New SR/Incidents")
-        
-        #DEBUG
-        st.write("Today's SR count:", today_sr.shape[0])
-        st.write("Sample Created Dates:", df["Created Date"].dropna().dt.date.unique())
-        # Count of 'Created Today' flags
-        if 'Created Today' in df_enriched.columns:
-            today_count = df_enriched['Created Today'].sum()
-            st.write(f"Records flagged as 'Created Today': {today_count}")
-        else:
-            st.write("WARNING: 'Created Today' column not found")
-        
+                
         # Get all items created today
         df_today = df_enriched[df_enriched['Created Today'] == True].copy()
             
