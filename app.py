@@ -933,8 +933,8 @@ else:
             # Filter columns that exist in the dataframe
             display_cols = [col for col in display_cols if col in df_today_filtered.columns]
             
-            # # Display the data
-            # st.dataframe(df_today_filtered[display_cols], hide_index=True)
+            # Display the data
+            st.dataframe(df_today_filtered[display_cols], hide_index=True)
             
             # Add tracking functionality
             st.subheader("🔍 Track Today's Items")
