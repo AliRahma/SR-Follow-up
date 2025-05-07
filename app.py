@@ -131,7 +131,7 @@ def load_data(file):
 # Function to process main dataframe
 def process_main_df(df):
     # Ensure date columns are in datetime format
-    date_columns = ['Case Start Date', 'Last Note Dated']
+    date_columns = ['Case Start Date', 'Last Updated']
     for col in date_columns:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors='coerce')
@@ -388,13 +388,13 @@ else:
             # Rename columns for clarity
             sr_df = sr_df.rename(columns={
                 'Status': 'SR Status',
-                'LastModDateTime': 'Last Note Date'
+                'LastModDateTime': 'Last Update'
             })
             
             # Merge data
             df_enriched['Ticket Number'] = pd.to_numeric(df_enriched['Ticket Number'], errors='coerce')
             df_enriched = df_enriched.merge(
-                sr_df[['Service Request', 'SR Status', 'Last Note Date']],
+                sr_df[['Service Request', 'SR Status', 'Last Update']],
                 how='left',
                 left_on='Ticket Number',
                 right_on='Service Request'
@@ -414,7 +414,7 @@ else:
     if selected == "SR Analysis":
         st.title("🔍 SR Analysis")
         
-        # Display Last Note Date time
+        # Display last update time
         st.markdown(f"**Last data update:** {st.session_state.last_upload_time}")
         
         # Filtering options
@@ -546,7 +546,7 @@ else:
         
         # Add SR Status columns if available
         if 'SR Status' in df_display.columns:
-            important_cols.extend(['SR Status', 'Last Note Date'])
+            important_cols.extend(['SR Status', 'Last Update'])
         
         # Ensure all columns exist
         display_cols = [col for col in important_cols if col in df_display.columns]
@@ -663,9 +663,9 @@ else:
                 case_details["Field"].append("SR Status")
                 case_details["Value"].append(case_row['SR Status'])
                 
-                if 'Last Note Date' in case_row and not pd.isna(case_row['Last Note Date']):
-                    case_details["Field"].append("Last Note Date")
-                    case_details["Value"].append(case_row['Last Note Date'])
+                if 'Last Update' in case_row and not pd.isna(case_row['Last Update']):
+                    case_details["Field"].append("Last Update")
+                    case_details["Value"].append(case_row['Last Update'])
             
             # Display as a table
             st.table(pd.DataFrame(case_details))
@@ -739,7 +739,7 @@ else:
             
             # Add SR Status columns if available
             if 'SR Status' in tracked_df.columns:
-                display_cols.extend(['SR Status', 'Last Note Date'])
+                display_cols.extend(['SR Status', 'Last Update'])
             
             # Filter columns that exist in the dataframe
             display_cols = [col for col in display_cols if col in tracked_df.columns]
@@ -826,9 +826,9 @@ else:
                             details["Field"].append("SR Status")
                             details["Value"].append(tracked_case_row['SR Status'])
                             
-                            if 'Last Note Date' in tracked_case_row and not pd.isna(tracked_case_row['Last Note Date']):
-                                details["Field"].append("Last Note Date")
-                                details["Value"].append(tracked_case_row['Last Note Date'])
+                            if 'Last Update' in tracked_case_row and not pd.isna(tracked_case_row['Last Update']):
+                                details["Field"].append("Last Update")
+                                details["Value"].append(tracked_case_row['Last Update'])
                         
                         # Show case details table
                         st.table(pd.DataFrame(details))
@@ -870,7 +870,7 @@ else:
             has_today = today in unique_dates
             st.write(f"Does data contain today's date? {has_today}")
         else:
-            st.write("WARNING: 'Last Note Dated' column not found")
+            st.write("WARNING: 'Last Updated' column not found")
         
         # Count of 'Created Today' flags
         if 'Created Today' in df_enriched.columns:
@@ -958,7 +958,7 @@ else:
             
             # Include SR Status if available
             if 'SR Status' in df_today_filtered.columns:
-                display_cols.extend(['SR Status', 'Last Note Date'])
+                display_cols.extend(['SR Status', 'Last Update'])
             
             # Filter columns that exist in the dataframe
             display_cols = [col for col in display_cols if col in df_today_filtered.columns]
@@ -1009,9 +1009,9 @@ else:
                         details["Field"].append("SR Status")
                         details["Value"].append(today_case_row['SR Status'])
                         
-                        if 'Last Note Date' in today_case_row and not pd.isna(today_case_row['Last Note Date']):
-                            details["Field"].append("Last Note Date")
-                            details["Value"].append(today_case_row['Last Note Date'])
+                        if 'Last Update' in today_case_row and not pd.isna(today_case_row['Last Update']):
+                            details["Field"].append("Last Update")
+                            details["Value"].append(today_case_row['Last Update'])
                     
                     # Show case details table
                     st.table(pd.DataFrame(details))
