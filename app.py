@@ -926,9 +926,9 @@ else:
             # Display columns
             display_cols = ['Case Id', 'Case Start Date','Last Note', 'Last Note Date', 'Status', 'Type', 'Ticket Number']
             
-            # Include SR Status if available
-            if 'SR Status' in df_today_filtered.columns:
-                display_cols.extend(['SR Status', 'Last Note Date'])
+            # # Include SR Status if available
+            # if 'SR Status' in df_today_filtered.columns:
+            #     display_cols.extend(['SR Status', 'Last Note Date'])
             
             # Filter columns that exist in the dataframe
             display_cols = [col for col in display_cols if col in df_today_filtered.columns]
