@@ -861,8 +861,8 @@ else:
     
         # Debug information
         st.write("Today's date:", datetime.now().date())
-        if 'Last Updated' in df_enriched.columns:
-            unique_dates = df_enriched['Last Updated'].dt.date.unique()
+        if 'Last Note Date' in df_enriched.columns:
+            unique_dates = df_enriched['Last Note Date'].dt.date.unique()
             st.write("Available dates in data:", sorted(unique_dates))
             
             # Check if there are today's dates
@@ -870,7 +870,7 @@ else:
             has_today = today in unique_dates
             st.write(f"Does data contain today's date? {has_today}")
         else:
-            st.write("WARNING: 'Last Updated' column not found")
+            st.write("WARNING: 'Last Note Date' column not found")
         
         # Count of 'Created Today' flags
         if 'Created Today' in df_enriched.columns:
