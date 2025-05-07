@@ -170,7 +170,7 @@ def calculate_age(start_date):
 def is_created_today(date_value):
     if pd.isna(date_value):
         return False
-    today = datetime.now()
+    today = datetime.now().date()
     note_date = date_value.date() if isinstance(date_value, datetime) else date_value
     return note_date == today
 
