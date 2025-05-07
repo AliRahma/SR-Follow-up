@@ -171,7 +171,18 @@ def is_created_today(date_value):
     if pd.isna(date_value):
         return False
     today = datetime.now().date()
-    note_date = date_value.date() if isinstance(date_value, datetime) else date_value
+    
+    # Convert to date if it's a datetime
+    if isinstance(date_value, datetime):
+        note_date = date_value.date()
+    else:
+        # Try to parse as date if it's another format
+        try:
+            note_date = pd.to_datetime(date_value).date()
+        except:
+            return False
+    
+    # Check if date matches today
     return note_date == today
 
 # Function to create downloadable Excel
@@ -847,7 +858,14 @@ else:
     #
     elif selected == "Today's SR/Incidents":
         st.title("📆 Today's New SR/Incidents")
-        
+        # After data load, check and print columns
+        st.write("Available columns:", df_main.columns.tolist())
+
+        # Check Last Updated field specifically
+        if 'Last Updated' in df_main.columns:
+            st.write("Last Updated values (first 5):", df_main['Last Updated'].head())
+        else:
+            st.write("WARNING: 'Last Updated' field not found!")
         # Get all items created today
         df_today = df_enriched[df_enriched['Created Today'] == True].copy()
         
