@@ -6,6 +6,7 @@ import io
 import base64
 from datetime import datetime, timedelta
 from streamlit_option_menu import option_menu
+from datetime import date
 
 # Set page configuration
 st.set_page_config(
