@@ -364,7 +364,7 @@ else:
         
         # Determine if note was created today
         if 'Last Updated' in df_enriched.columns:
-            df_enriched['Created Today'] = df_enriched['Last Updated'].apply(is_created_today)
+            df_enriched['Created Today'] = df_enriched['Last Note Date'].apply(is_created_today)
         
         # Merge with SR status data if available
         if st.session_state.sr_df is not None:
