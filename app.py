@@ -860,6 +860,9 @@ else:
     elif selected == "Today's SR/Incidents":
         st.title("📆 Today's New SR/Incidents")
         
+        #DEBUG
+        st.write("Today's SR count:", today_sr.shape[0])
+        st.write("Sample Created Dates:", df["Created Date"].dropna().dt.date.unique())
         # Count of 'Created Today' flags
         if 'Created Today' in df_enriched.columns:
             today_count = df_enriched['Created Today'].sum()
