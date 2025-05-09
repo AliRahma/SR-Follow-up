@@ -231,7 +231,7 @@ def bulk_track_toggle(df, case_ids):
 
 # Sidebar - File Upload Section
 with st.sidebar:
-    st.title("📊 SR Analyzer Pro")
+    st.title("📊 SR Analyzer Pro TeeesT")
     st.markdown("---")
 
     st.subheader("📁 Data Import")
