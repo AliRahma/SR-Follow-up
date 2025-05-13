@@ -696,12 +696,12 @@ else:
                         
                         # Display case details in a table
                         breach_details = {
-                            "Field": ["Case ID", "Owner", "Start Date", "Age", "Ticket Number", "Type"],
+                            "Field": ["Case ID", "Owner", "Start Date", "Breach Date", "Ticket Number", "Type"],
                             "Value": [
                                 breach_row['Case Id'],
                                 breach_row['Current User Id'],
                                 breach_row['Case Start Date'].strftime('%Y-%m-%d'),
-                                f"{breach_row['Age (Days)']} days",
+                                breach_row['Breach Date'] ",
                                 int(breach_row['Ticket Number']) if not pd.isna(breach_row['Ticket Number']) else 'N/A',
                                 breach_row['Type'] if not pd.isna(breach_row['Type']) else 'N/A'
                             ]
