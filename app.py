@@ -688,4 +688,193 @@ else:
                     st.subheader("🔍 Breach Case Details")
                     
                     selected_breach_case = st.selectbox(
-                        "Select a breached case to view details:",
+                        "Select a breached case to view details:",filtered_breach_df['Case Id'].tolist()
+                    )
+                    
+                    if selected_breach_case:
+                        breach_row = filtered_breach_df[filtered_breach_df['Case Id'] == selected_breach_case].iloc[0]
+                        
+                        # Display case details in a table
+                        breach_details = {
+                            "Field": ["Case ID", "Owner", "Start Date", "Age", "Ticket Number", "Type"],
+                            "Value": [
+                                breach_row['Case Id'],
+                                breach_row['Current User Id'],
+                                breach_row['Case Start Date'].strftime('%Y-%m-%d'),
+                                f"{breach_row['Age (Days)']} days",
+                                int(breach_row['Ticket Number']) if not pd.isna(breach_row['Ticket Number']) else 'N/A',
+                                breach_row['Type'] if not pd.isna(breach_row['Type']) else 'N/A'
+                            ]
+                        }
+                        
+                        # Add SR Status if available
+                        if 'SR Status' in breach_row and not pd.isna(breach_row['SR Status']):
+                            breach_details["Field"].append("SR Status")
+                            breach_details["Value"].append(breach_row['SR Status'])
+                            
+                            if 'Last Update' in breach_row and not pd.isna(breach_row['Last Update']):
+                                breach_details["Field"].append("Last Update")
+                                breach_details["Value"].append(breach_row['Last Update'])
+                        
+                        # Display as a table
+                        st.table(pd.DataFrame(breach_details))
+                        
+                        # Display the full note
+                        st.markdown("### Last Note")
+                        if 'Last Note' in breach_row and not pd.isna(breach_row['Last Note']):
+                            st.text_area("Note Content", breach_row['Last Note'], height=200)
+                        else:
+                            st.info("No notes available for this case")
+            else:
+                st.warning("SLA Breach information not available. Please ensure your SR Status file contains breach data.")
+    
+    #
+    # TODAY'S SR/INCIDENTS TAB
+    #
+    elif selected == "Today's SR/Incidents":
+        st.title("📅 Today's SR/Incidents")
+        
+        # Filter to get today's entries
+        if 'Created Today' in df_enriched.columns:
+            today_df = df_enriched[df_enriched['Created Today'] == True].copy()
+            
+            # Display summary statistics
+            st.subheader("📊 Today's Activity Summary")
+            
+            # Statistics cards
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                today_count = len(today_df)
+                st.markdown(f'<p class="metric-value">{today_count}</p>', unsafe_allow_html=True)
+                st.markdown('<p class="metric-label">Total Today\'s Activities</p>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                sr_count = len(today_df[today_df['Type'] == 'SR'])
+                st.markdown(f'<p class="metric-value">{sr_count}</p>', unsafe_allow_html=True)
+                st.markdown('<p class="metric-label">Today\'s SRs</p>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with col3:
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                incident_count = len(today_df[today_df['Type'] == 'Incident'])
+                st.markdown(f'<p class="metric-value">{incident_count}</p>', unsafe_allow_html=True)
+                st.markdown('<p class="metric-label">Today\'s Incidents</p>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Filtering options for today's data
+            st.subheader("🔍 Filter Today's Activities")
+            
+            filter_col1, filter_col2 = st.columns(2)
+            
+            with filter_col1:
+                today_type_options = ["All", "SR", "Incident"]
+                today_type_filter = st.selectbox("Filter by Type", today_type_options)
+            
+            with filter_col2:
+                if 'Current User Id' in today_df.columns:
+                    today_user_options = ["All"] + today_df['Current User Id'].dropna().unique().tolist()
+                    today_user_filter = st.selectbox("Filter by User", today_user_options)
+                else:
+                    today_user_filter = "All"
+            
+            # Apply filters
+            filtered_today_df = today_df.copy()
+            
+            if today_type_filter != "All":
+                filtered_today_df = filtered_today_df[filtered_today_df['Type'] == today_type_filter]
+            
+            if today_user_filter != "All" and 'Current User Id' in filtered_today_df.columns:
+                filtered_today_df = filtered_today_df[filtered_today_df['Current User Id'] == today_user_filter]
+            
+            # Today's data table
+            st.subheader("📋 Today's Activities Details")
+            
+            if filtered_today_df.empty:
+                st.info("No activities found today matching the current filters.")
+            else:
+                # Results count and download button
+                results_col1, results_col2 = st.columns([3, 1])
+                
+                with results_col1:
+                    st.markdown(f"**Total Today's Records:** {filtered_today_df.shape[0]}")
+                
+                with results_col2:
+                    excel_data = generate_excel_download(filtered_today_df)
+                    st.download_button(
+                        label="📥 Download Today's Data",
+                        data=excel_data,
+                        file_name=f"today_activities_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                
+                # Important columns for today's display
+                today_display_cols = ['Case Id', 'Current User Id', 'Case Start Date', 'Type', 'Ticket Number', 'Status']
+                
+                # Add SR Status columns if available
+                if 'SR Status' in filtered_today_df.columns:
+                    today_display_cols.extend(['SR Status', 'Last Update'])
+                
+                # Ensure all columns exist
+                today_display_cols = [col for col in today_display_cols if col in filtered_today_df.columns]
+                
+                # Display today's data
+                st.dataframe(filtered_today_df[today_display_cols], hide_index=True)
+                
+                # Detailed today's case viewer
+                st.subheader("🔍 Today's Case Details")
+                
+                selected_today_case = st.selectbox(
+                    "Select a case to view details:",
+                    filtered_today_df['Case Id'].tolist()
+                )
+                
+                if selected_today_case:
+                    today_row = filtered_today_df[filtered_today_df['Case Id'] == selected_today_case].iloc[0]
+                    
+                    # Display case details in a table
+                    today_details = {
+                        "Field": ["Case ID", "Owner", "Start Date", "Type", "Ticket Number", "Status"],
+                        "Value": [
+                            today_row['Case Id'],
+                            today_row['Current User Id'],
+                            today_row['Case Start Date'].strftime('%Y-%m-%d'),
+                            today_row['Type'] if not pd.isna(today_row['Type']) else 'N/A',
+                            int(today_row['Ticket Number']) if not pd.isna(today_row['Ticket Number']) else 'N/A',
+                            today_row['Status']
+                        ]
+                    }
+                    
+                    # Add SR Status if available
+                    if 'SR Status' in today_row and not pd.isna(today_row['SR Status']):
+                        today_details["Field"].append("SR Status")
+                        today_details["Value"].append(today_row['SR Status'])
+                        
+                        if 'Last Update' in today_row and not pd.isna(today_row['Last Update']):
+                            today_details["Field"].append("Last Update")
+                            today_details["Value"].append(today_row['Last Update'])
+                    
+                    # Display as a table
+                    st.table(pd.DataFrame(today_details))
+                    
+                    # Display the full note
+                    st.markdown("### Last Note")
+                    if 'Last Note' in today_row and not pd.isna(today_row['Last Note']):
+                        st.text_area("Note Content", today_row['Last Note'], height=200)
+                    else:
+                        st.info("No notes available for this case")
+        else:
+            st.warning("Today's data not available. Please ensure your main data includes 'Last Note Date' column.")
+
+# Add footer
+st.markdown("---")
+st.markdown(
+    """<div style="text-align:center; color:#888; font-size:0.8em;">
+    SR Analyzer Pro v1.0 | Developed by Support Team | © 2025
+    </div>""",
+    unsafe_allow_html=True
+)
+                        
