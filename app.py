@@ -825,7 +825,7 @@ else:
                 
                 # Add SR Status columns if available
                 if 'SR Status' in filtered_today_df.columns:
-                    today_display_cols.extend(['SR Status', 'Last Update'])
+                    today_display_cols.extend(['SR Status', 'Last Update','Breach Date'])
                 
                 # Ensure all columns exist
                 today_display_cols = [col for col in today_display_cols if col in filtered_today_df.columns]
