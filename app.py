@@ -536,7 +536,7 @@ else:
         
         # Add SR Status columns if available
         if 'SR Status' in df_display.columns:
-            important_cols.extend(['SR Status', 'Last Update'])
+            important_cols.extend(['SR Status','Breach Passed' ,'Last Update'])
         
         # Ensure all columns exist
         display_cols = [col for col in important_cols if col in df_display.columns]
