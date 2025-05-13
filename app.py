@@ -539,7 +539,7 @@ else:
                     case_row['Case Id'],
                     case_row['Current User Id'],
                     case_row['Case Start Date'].strftime('%Y-%m-%d'),
-                    f"{case_row['Age (Days)']} days",
+                    f"{case_row['Breach Date']} ",
                     int(case_row['Ticket Number']) if not pd.isna(case_row['Ticket Number']) else 'N/A',
                     case_row['Type'] if not pd.isna(case_row['Type']) else 'N/A'
                 ]
