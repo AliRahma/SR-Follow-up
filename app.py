@@ -534,7 +534,7 @@ else:
             
             # Display case details in a table
             case_details = {
-                "Field": ["Case ID", "Owner", "Start Date", "Age", "Ticket Number", "Type"],
+                "Field": ["Case ID", "Owner", "Start Date", "Breach Date", "Ticket Number", "Type"],
                 "Value": [
                     case_row['Case Id'],
                     case_row['Current User Id'],
