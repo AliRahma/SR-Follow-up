@@ -676,7 +676,7 @@ else:
                         )
                     
                     # Important columns for breach display
-                    breach_display_cols = ['Case Id', 'Current User Id', 'Case Start Date', 'Type', 'Ticket Number', 'SR Status', 'Last Update', 'Age (Days)']
+                    breach_display_cols = ['Case Id', 'Current User Id', 'Case Start Date', 'Type', 'Ticket Number', 'SR Status', 'Last Update', 'Breach Date']
                     
                     # Ensure all columns exist
                     breach_display_cols = [col for col in breach_display_cols if col in filtered_breach_df.columns]
