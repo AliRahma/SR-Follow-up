@@ -710,7 +710,7 @@ else:
                                 breach_row['Case Id'],
                                 breach_row['Current User Id'],
                                 breach_row['Case Start Date'].strftime('%Y-%m-%d'),
-                                breach_row['Breach Date'].strftime('%Y-%m-%d') if 'Breach Date' in breach_row and not pd.isna(breach_row['Breach Date']) else 'N/A' ,
+                                breach_date_value,
                                 int(breach_row['Ticket Number']) if not pd.isna(breach_row['Ticket Number']) else 'N/A',
                                 breach_row['Type'] if not pd.isna(breach_row['Type']) else 'N/A'
                             ]
