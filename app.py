@@ -694,7 +694,15 @@ else:
                     
                     if selected_breach_case:
                         breach_row = filtered_breach_df[filtered_breach_df['Case Id'] == selected_breach_case].iloc[0]
-                        
+                        # First, check if Breach Date exists in your dataframe
+                        breach_date_value = "N/A"
+                        # Try different possible column names
+                        for possible_column in ['Breach Date', 'SLA Breach Date', 'Breach Time', 'SLA Breach']:
+                            if possible_column in breach_row and not pd.isna(breach_row[possible_column]):
+                                breach_date_value = breach_row[possible_column]
+                                if isinstance(breach_date_value, datetime):
+                                    breach_date_value = breach_date_value.strftime('%Y-%m-%d')
+                                break
                         # Display case details in a table
                         breach_details = {
                             "Field": ["Case ID", "Owner", "Start Date", "Breach Date", "Ticket Number", "Type"],
