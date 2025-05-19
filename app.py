@@ -757,7 +757,7 @@ else:
 st.markdown("<hr style='margin: 2em 0; border-color: #ddd;'>", unsafe_allow_html=True)
 st.markdown(
     """<div style="text-align:center; color:#888; font-size:0.8em;">
-    SR Analyzer Pro | Developed with Streamlit | © """ + str(datetime.now().year) + """
+    SR Analyzer Pro | Developed with Ali Babiker | © """ + str(datetime.now().year) + """
     </div>""",
     unsafe_allow_html=True
 )
