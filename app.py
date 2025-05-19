@@ -322,10 +322,18 @@ else:
         
         st.subheader("📊 Summary Analysis")
         summary_col1_disp, summary_col2_disp, summary_col3_disp = st.columns(3)
-        with summary_col1_disp: # Use df_enriched_main for overall summary of selected users/dates
+        with summary_col1:
             st.markdown("**🔸 Triage Status Count**")
-            triage_summary_disp = df_enriched_main['Status'].value_counts().rename_axis('Triage Status').reset_index(name='Count')
-            st.dataframe(triage_summary_disp.style.set_properties(**{'background-color': 'white'}), use_container_width=True)
+            triage_summary = df_enriched['Status'].value_counts().rename_axis('Triage Status').reset_index(name='Count')
+            triage_total = {'Triage Status': 'Total', 'Count': triage_summary['Count'].sum()}
+            triage_df = pd.concat([triage_summary, pd.DataFrame([triage_total])], ignore_index=True)
+            
+            st.dataframe(
+                triage_df.style.apply(
+                    lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(triage_df)-1 else '' for _ in x],
+                    axis=1
+                )
+            )
         with summary_col2_disp:
             st.markdown("**🔹 SR vs Incident Count**")
             type_summary_disp = df_enriched_main['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
