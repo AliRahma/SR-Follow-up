@@ -322,7 +322,7 @@ else:
         
         st.subheader("📊 Summary Analysis")
         summary_col1_disp, summary_col2_disp, summary_col3_disp = st.columns(3)
-        with summary_col1:
+        with summary_col1_disp:
             st.markdown("**🔸 Triage Status Count**")
             triage_summary = df_enriched['Status'].value_counts().rename_axis('Triage Status').reset_index(name='Count')
             triage_total = {'Triage Status': 'Total', 'Count': triage_summary['Count'].sum()}
