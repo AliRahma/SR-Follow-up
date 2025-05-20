@@ -364,7 +364,7 @@ else:
             ).drop(columns=['Service Request'])
 
             # After merging with SR status data
-            if 'Breach Date' in df_enriched.columns:
+        if 'Breach Date' in df_enriched.columns:
             df_enriched['Breach Date'] = pd.to_datetime(df_enriched['Breach Date'], errors='coerce')
         return df_enriched
     
