@@ -221,17 +221,18 @@ with st.sidebar:
         
         st.success(f"Main data loaded: {df.shape[0]} records")
         st.session_state.data_loaded = True
-        # Display last upload time
-        abu_dhabi_tz = pytz.timezone('Asia/Dubai')
-        st.session_state.last_upload_time = datetime.now(abu_dhabi_tz).strftime("%Y-%m-%d %H:%M:%S %Z")
-        if st.session_state.last_upload_time:
-            st.info(f"Last upload: {st.session_state.last_upload_time}")
     
     if sr_status_file:
         with st.spinner("Loading SR status data..."):
             sr_df = load_data(sr_status_file)
             st.session_state.sr_df = sr_df
         st.success(f"SR status data loaded: {sr_df.shape[0]} records")
+    
+    # Display last upload time
+    abu_dhabi_tz = pytz.timezone('Asia/Dubai')
+    st.session_state.last_upload_time = datetime.now(abu_dhabi_tz).strftime("%Y-%m-%d %H:%M:%S %Z")
+    if st.session_state.last_upload_time:
+        st.info(f"Last upload: {st.session_state.last_upload_time}")
     
     st.markdown("---")
     
