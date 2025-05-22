@@ -4,7 +4,7 @@ import numpy as np
 import re
 import io
 import base64
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, pytz
 from streamlit_option_menu import option_menu
 
 # Set page configuration
@@ -228,6 +228,8 @@ with st.sidebar:
         st.success(f"SR status data loaded: {sr_df.shape[0]} records")
     
     # Display last upload time
+    abu_dhabi_tz = pytz.timezone('Asia/Dubai')
+    st.session_state.last_upload_time = datetime.now(abu_dhabi_tz).strftime("%Y-%m-%d %H:%M:%S %Z")
     if st.session_state.last_upload_time:
         st.info(f"Last upload: {st.session_state.last_upload_time}")
     
