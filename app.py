@@ -230,7 +230,7 @@ with st.sidebar:
     
     # Display last upload time
     abu_dhabi_tz = pytz.timezone('Asia/Dubai')
-    st.session_state.last_upload_time = datetime.now(abu_dhabi_tz).strftime("%Y-%m-%d %H:%M:%S %Z")
+    st.session_state.last_upload_time = datetime.now(abu_dhabi_tz).strftime("%Y-%m-%d %H:%M:%S")
     if st.session_state.last_upload_time:
         st.info(f"Last upload: {st.session_state.last_upload_time}")
     
