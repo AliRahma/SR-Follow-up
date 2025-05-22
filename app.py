@@ -4,7 +4,8 @@ import numpy as np
 import re
 import io
 import base64
-from datetime import datetime, timedelta, pytz
+from datetime import datetime, timedelta
+import pytz
 from streamlit_option_menu import option_menu
 
 # Set page configuration
