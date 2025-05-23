@@ -931,6 +931,10 @@ else:
             else:
                 st.info("No cases found with notes created today.")
 
-# Footer
 st.markdown("---")
-st.markdown("**SR Analyzer Pro Enhanced** - Version 2.0 | Developed by Ali Babiker")
+st.markdown(
+    """<div style="text-align:center; color:#888; font-size:0.8em;">
+    Intellipen Analyzer v2.0 | Developed by Ali Babiker | © 2025
+    </div>""",
+    unsafe_allow_html=True
+)
