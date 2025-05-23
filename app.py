@@ -115,8 +115,6 @@ if 'main_df' not in st.session_state:
     st.session_state.main_df = None
 if 'sr_df' not in st.session_state:
     st.session_state.sr_df = None
-if 'incident_df' not in st.session_state:
-    st.session_state.incident_df = None
 if 'filtered_df' not in st.session_state:
     st.session_state.filtered_df = None
 if 'last_upload_time' not in st.session_state:
@@ -125,6 +123,8 @@ if 'selected_users' not in st.session_state:
     st.session_state.selected_users = []
 if 'selected_case_ids' not in st.session_state:
     st.session_state.selected_case_ids = []
+if 'incident_df' not in st.session_state:
+    st.session_state.incident_df = None
 
 # Function to load and process data
 @st.cache_data
@@ -158,8 +158,8 @@ def classify_and_extract(note):
         
     if match:
         ticket_num = int(match.group(2))
-        # SR numbers typically between 14000-18000 (adjust based on your system)
-        ticket_type = "SR" if 14000 <= ticket_num <= 18000 else "Incident"
+        # SR numbers typically between 14000-16000 (adjust based on your system)
+        ticket_type = "SR" if 14000 <= ticket_num <= 17000 else "Incident"
         return "Pending SR/Incident", ticket_num, ticket_type
     
     return "Not Triaged", None, None
@@ -208,19 +208,19 @@ def generate_excel_download(data):
 
 # Sidebar - File Upload Section
 with st.sidebar:
-    st.title("📊 SR Analyzer Pro Enhanced")
+    st.title("📊 SR Analyzer Pro TeeesT")
     st.markdown("---")
 
     st.subheader("📁 Data Import")
     uploaded_file = st.file_uploader("Upload Main Excel File (.xlsx)", type=["xlsx","xls"])
     sr_status_file = st.file_uploader("Upload SR Status Excel (optional)", type=["xlsx","xls"])
-    incident_status_file = st.file_uploader("Upload Incident Report Excel (optional)", type=["xlsx","xls"])
+    incident_report_file = st.file_uploader("Upload Incident Report Excel (.xlsx)", type=["xlsx","xls"])
     
     if uploaded_file:
         with st.spinner("Loading main data..."):
             df = load_data(uploaded_file)
             st.session_state.main_df = process_main_df(df)
-            st.session_state.last_upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.last_upload_time = datetime.now(pytz.timezone('Asia/Dubai')).strftime("%Y-%m-%d %H:%M:%S")
         
         st.success(f"Main data loaded: {df.shape[0]} records")
         st.session_state.data_loaded = True
@@ -229,17 +229,20 @@ with st.sidebar:
         with st.spinner("Loading SR status data..."):
             sr_df = load_data(sr_status_file)
             st.session_state.sr_df = sr_df
+            st.session_state.last_upload_time = datetime.now(pytz.timezone('Asia/Dubai')).strftime("%Y-%m-%d %H:%M:%S")
         st.success(f"SR status data loaded: {sr_df.shape[0]} records")
-    
-    if incident_status_file:
+
+    if incident_report_file:
         with st.spinner("Loading incident report data..."):
-            incident_df = load_data(incident_status_file)
+            incident_df = load_data(incident_report_file) # Assuming load_data can be reused
             st.session_state.incident_df = incident_df
+            # Update last upload time, ensuring pytz and datetime are available
+            st.session_state.last_upload_time = datetime.now(pytz.timezone('Asia/Dubai')).strftime("%Y-%m-%d %H:%M:%S")
         st.success(f"Incident report data loaded: {incident_df.shape[0]} records")
     
     # Display last upload time
-    abu_dhabi_tz = pytz.timezone('Asia/Dubai')
-    st.session_state.last_upload_time = datetime.now(abu_dhabi_tz).strftime("%Y-%m-%d %H:%M:%S")
+    # abu_dhabi_tz = pytz.timezone('Asia/Dubai')
+    # st.session_state.last_upload_time = datetime.now(abu_dhabi_tz).strftime("%Y-%m-%d %H:%M:%S")
     if st.session_state.last_upload_time:
         st.info(f"Last upload: {st.session_state.last_upload_time}")
     
@@ -278,24 +281,22 @@ with st.sidebar:
 
 # Main content
 if not st.session_state.data_loaded:
-    st.title("📊 SR Analyzer Pro Enhanced")
+    st.title("📊 SR Analyzer Pro")
     st.markdown("""
-    ### Welcome to the Enhanced SR Analyzer Pro!
+    ### Welcome to the SR Analyzer Pro!
     
     This application helps you analyze Service Requests and Incidents efficiently.
     
     To get started:
     1. Upload your main Excel file using the sidebar
     2. Optionally upload SR status file for enhanced analysis
-    3. Optionally upload Incident report file for incident tracking
-    4. Use the application to analyze and export your data
+    3. Use the application to analyze and export your data
     
-    **Enhanced Features:**
+    **Features:**
     - Advanced filtering and search
-    - Detailed SR and Incident Analysis
+    - Detailed SR Analysis
     - SLA Breach monitoring
     - Today's new incidents and SRs
-    - Unified Status tracking for both SRs and Incidents
     """)
 else:
     # Process and filter data
@@ -318,7 +319,7 @@ else:
     # Prepare tab interface
     selected = option_menu(
         menu_title=None,
-        options=["SR/Incident Analysis", "SLA Breach", "Today's SR/Incidents"],
+        options=["SR Analysis", "SLA Breach", "Today's SR/Incidents"],
         icons=["kanban", "exclamation-triangle", "calendar-date"],
         menu_icon="cast",
         default_index=0,
@@ -342,7 +343,7 @@ else:
         df_enriched = df.copy()
         
         # Classify and extract ticket info
-        df_enriched[['Triage Status', 'Ticket Number', 'Type']] = pd.DataFrame(
+        df_enriched[['Status', 'Ticket Number', 'Type']] = pd.DataFrame(
             df_enriched['Last Note'].apply(lambda x: pd.Series(classify_and_extract(x)))
         )
         
@@ -354,11 +355,6 @@ else:
         if 'Last Note Date' in df_enriched.columns:
             df_enriched['Created Today'] = df_enriched['Last Note Date'].apply(is_created_today)
         
-        # Initialize Status and Last Update columns
-        df_enriched['Status'] = None
-        df_enriched['Last Update'] = None
-        df_enriched['Breach Passed'] = None
-        
         # Merge with SR status data if available
         if st.session_state.sr_df is not None:
             sr_df = st.session_state.sr_df.copy()
@@ -369,76 +365,22 @@ else:
             
             # Rename columns for clarity
             sr_df = sr_df.rename(columns={
-                'Status': 'SR_Status',
-                'LastModDateTime': 'SR_Last_Update'
+                'Status': 'SR Status',
+                'LastModDateTime': 'Last Update'
             })
             
-            # Merge SR data
+            # Merge data
             df_enriched['Ticket Number'] = pd.to_numeric(df_enriched['Ticket Number'], errors='coerce')
             df_enriched = df_enriched.merge(
-                sr_df[['Service Request', 'SR_Status', 'SR_Last_Update', 'Breach Passed']],
+                sr_df[['Service Request', 'SR Status', 'Last Update', 'Breach Passed']],
                 how='left',
                 left_on='Ticket Number',
                 right_on='Service Request'
             ).drop(columns=['Service Request'])
-            
-            # Update Status and Last Update for SRs
-            sr_mask = df_enriched['Type'] == 'SR'
-            df_enriched.loc[sr_mask, 'Status'] = df_enriched.loc[sr_mask, 'SR_Status']
-            df_enriched.loc[sr_mask, 'Last Update'] = df_enriched.loc[sr_mask, 'SR_Last_Update']
-            
-            # Drop temporary columns
-            df_enriched = df_enriched.drop(columns=['SR_Status', 'SR_Last_Update'], errors='ignore')
-        
-        # Merge with Incident status data if available
-        if st.session_state.incident_df is not None:
-            incident_df = st.session_state.incident_df.copy()
-            
-            # Check for different possible column names for incident ID
-            incident_id_col = None
-            for col in ['Incident ID', 'IncidentID', 'Incident Number', 'ID', 'Number']:
-                if col in incident_df.columns:
-                    incident_id_col = col
-                    break
-            
-            if incident_id_col:
-                # Clean and prepare Incident data
-                incident_df[incident_id_col] = incident_df[incident_id_col].astype(str).str.extract(r'(\d{4,})')
-                incident_df[incident_id_col] = pd.to_numeric(incident_df[incident_id_col], errors='coerce')
-                
-                # Rename columns for clarity
-                incident_df = incident_df.rename(columns={
-                    'Status': 'INC_Status',
-                    'LastModDateTime': 'INC_Last_Update',
-                    'Last Update': 'INC_Last_Update',
-                    'Last Checked atc': 'INC_Last_Update',
-                    incident_id_col: 'Incident_Number'
-                })
-                
-                # Merge Incident data
-                df_enriched = df_enriched.merge(
-                    incident_df[['Incident_Number', 'INC_Status', 'INC_Last_Update', 'Breach Passed']].fillna(method='ffill', axis=1),
-                    how='left',
-                    left_on='Ticket Number',
-                    right_on='Incident_Number'
-                ).drop(columns=['Incident_Number'])
-                
-                # Update Status and Last Update for Incidents
-                incident_mask = df_enriched['Type'] == 'Incident'
-                df_enriched.loc[incident_mask, 'Status'] = df_enriched.loc[incident_mask, 'INC_Status']
-                df_enriched.loc[incident_mask, 'Last Update'] = df_enriched.loc[incident_mask, 'INC_Last_Update']
-                
-                # For incidents, if Breach Passed from incident data is True, update the main Breach Passed
-                incident_breach_mask = (df_enriched['Type'] == 'Incident') & (df_enriched['Breach Passed_y'] == True)
-                df_enriched.loc[incident_breach_mask, 'Breach Passed'] = True
-                
-                # Drop temporary columns
-                df_enriched = df_enriched.drop(columns=['INC_Status', 'INC_Last_Update', 'Breach Passed_x', 'Breach Passed_y'], errors='ignore')
-        
-        # Clean up date columns
+
+            # After merging with SR status data
         if 'Breach Date' in df_enriched.columns:
             df_enriched['Breach Date'] = pd.to_datetime(df_enriched['Breach Date'], errors='coerce')
-            
         return df_enriched
     
     # Enrich data with classifications and metrics
@@ -448,10 +390,10 @@ else:
     st.session_state.filtered_df = df_enriched
     
     #
-    # SR/INCIDENT ANALYSIS TAB
+    # SR ANALYSIS TAB
     #
-    if selected == "SR/Incident Analysis":
-        st.title("🔍 SR/Incident Analysis")
+    if selected == "SR Analysis":
+        st.title("🔍 SR Analysis")
         
         # Display last update time
         st.markdown(f"**Last data update:** {st.session_state.last_upload_time}")
@@ -462,7 +404,7 @@ else:
         with col1:
             status_filter = st.selectbox(
                 "Filter by Triage Status",
-                ["All"] + df_enriched["Triage Status"].dropna().unique().tolist()
+                ["All"] + df_enriched["Status"].dropna().unique().tolist()
             )
         
         with col2:
@@ -472,27 +414,27 @@ else:
             )
         
         with col3:
-            # Unified Status filter
-            if 'Status' in df_enriched.columns:
-                status_options = ["All"] + df_enriched['Status'].dropna().unique().tolist() + ["None"]
-                unified_status_filter = st.selectbox("Filter by Status", status_options)
+            # SR Status filter (if available)
+            if 'SR Status' in df_enriched.columns:
+                sr_status_options = ["All"] + df_enriched['SR Status'].dropna().unique().tolist() + ["None"]
+                sr_status_filter = st.selectbox("Filter by SR Status", sr_status_options)
             else:
-                unified_status_filter = "All"
+                sr_status_filter = "All"
         
         # Apply filters
         df_display = df_enriched.copy()
         
         if status_filter != "All":
-            df_display = df_display[df_display["Triage Status"] == status_filter]
+            df_display = df_display[df_display["Status"] == status_filter]
         
         if type_filter != "All":
             df_display = df_display[df_display["Type"] == type_filter]
         
-        if unified_status_filter != "All":
-            if unified_status_filter == "None":
-                df_display = df_display[df_display["Status"].isna()]
+        if sr_status_filter != "All":
+            if sr_status_filter == "None":
+                df_display = df_display[df_display["SR Status"].isna()]
             else:
-                df_display = df_display[df_display["Status"] == unified_status_filter]
+                df_display = df_display[df_display["SR Status"] == sr_status_filter]
         
         # Statistics and summary
         st.subheader("📊 Summary Analysis")
@@ -501,7 +443,7 @@ else:
         
         with summary_col1:
             st.markdown("**🔸 Triage Status Count**")
-            triage_summary = df_enriched['Triage Status'].value_counts().rename_axis('Triage Status').reset_index(name='Count')
+            triage_summary = df_enriched['Status'].value_counts().rename_axis('Triage Status').reset_index(name='Count')
             triage_total = {'Triage Status': 'Total', 'Count': triage_summary['Count'].sum()}
             triage_df = pd.concat([triage_summary, pd.DataFrame([triage_total])], ignore_index=True)
             
@@ -526,40 +468,40 @@ else:
             )
         
         with summary_col3:
-            st.markdown("**🟢 Status Summary**")
-            if 'Status' in df_enriched.columns:
-                # Drop rows where Status is NaN
-                df_status_valid = df_enriched.dropna(subset=['Status'])
+            st.markdown("**🟢 SR Status Summary**")
+            if 'SR Status' in df_enriched.columns:
+                # Drop rows where SR Status is NaN
+                df_status_valid = df_enriched.dropna(subset=['SR Status'])
                 
-                # All status count
-                status_all_counts = df_status_valid['Status'].value_counts().rename_axis('Status').reset_index(name='All Count')
+                # All SR status count
+                sr_all_counts = df_status_valid['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='All SR Count')
                 
-                # Unique tickets
-                ticket_unique = df_status_valid.dropna(subset=['Ticket Number'])[['Ticket Number', 'Status']].drop_duplicates()
-                ticket_unique_counts = ticket_unique['Status'].value_counts().rename_axis('Status').reset_index(name='Unique Count')
+                # Unique SRs
+                sr_unique = df_status_valid.dropna(subset=['Ticket Number'])[['Ticket Number', 'SR Status']].drop_duplicates()
+                sr_unique_counts = sr_unique['SR Status'].value_counts().rename_axis('SR Status').reset_index(name='Unique SR Count')
                 
                 # Merge both summaries
-                merged_status = pd.merge(status_all_counts, ticket_unique_counts, on='Status', how='outer').fillna(0)
-                merged_status[['All Count', 'Unique Count']] = merged_status[['All Count', 'Unique Count']].astype(int)
+                merged_sr = pd.merge(sr_all_counts, sr_unique_counts, on='SR Status', how='outer').fillna(0)
+                merged_sr[['All SR Count', 'Unique SR Count']] = merged_sr[['All SR Count', 'Unique SR Count']].astype(int)
                 
                 # Total row
                 total_row = {
-                    'Status': 'Total',
-                    'All Count': merged_status['All Count'].sum(),
-                    'Unique Count': merged_status['Unique Count'].sum()
+                    'SR Status': 'Total',
+                    'All SR Count': merged_sr['All SR Count'].sum(),
+                    'Unique SR Count': merged_sr['Unique SR Count'].sum()
                 }
                 
-                status_summary_df = pd.concat([merged_status, pd.DataFrame([total_row])], ignore_index=True)
+                sr_summary_df = pd.concat([merged_sr, pd.DataFrame([total_row])], ignore_index=True)
                 
                 # Display
                 st.dataframe(
-                    status_summary_df.style.apply(
-                        lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(status_summary_df)-1 else '' for _ in x],
+                    sr_summary_df.style.apply(
+                        lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(sr_summary_df)-1 else '' for _ in x],
                         axis=1
                     )
                 )
             else:
-                st.info("Upload SR/Incident Status files to view this summary.")
+                st.info("Upload SR Status file to view this summary.")
         
         # Detailed Results
         st.subheader("📋 Filtered Results")
@@ -576,16 +518,16 @@ else:
                 st.download_button(
                     label="📥 Download Results",
                     data=excel_data,
-                    file_name=f"sr_incident_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    file_name=f"sr_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
         
         # Display data table with important columns
-        important_cols = ['Last Note', 'Case Id', 'Current User Id', 'Case Start Date', 'Triage Status', 'Type', 'Ticket Number']
+        important_cols = ['Last Note', 'Case Id', 'Current User Id', 'Case Start Date', 'Status', 'Type', 'Ticket Number']
         
-        # Add Status columns if available
-        if 'Status' in df_display.columns:
-            important_cols.extend(['Status', 'Last Update'])
+        # Add SR Status columns if available
+        if 'SR Status' in df_display.columns:
+            important_cols.extend(['SR Status', 'Last Update'])
             if 'Breach Passed' in df_display.columns:
                 important_cols.append('Breach Passed')
         
@@ -621,10 +563,10 @@ else:
                 ]
             }
             
-            # Add Status if available
-            if 'Status' in case_row and not pd.isna(case_row['Status']):
-                case_details["Field"].append("Status")
-                case_details["Value"].append(case_row['Status'])
+            # Add SR Status if available
+            if 'SR Status' in case_row and not pd.isna(case_row['SR Status']):
+                case_details["Field"].append("SR Status")
+                case_details["Value"].append(case_row['SR Status'])
                 
                 if 'Last Update' in case_row and not pd.isna(case_row['Last Update']):
                     case_details["Field"].append("Last Update")
@@ -659,9 +601,9 @@ else:
     elif selected == "SLA Breach":
         st.title("⚠️ SLA Breach Analysis")
         
-        # Check if either SR or Incident data is available
-        if st.session_state.sr_df is None and st.session_state.incident_df is None:
-            st.warning("Please upload SR Status Excel file or Incident Report Excel file to view SLA breach information.")
+        # Check if SR data is available
+        if st.session_state.sr_df is None:
+            st.warning("Please upload SR Status Excel file to view SLA breach information.")
         else:
             # Filter to get only breach cases
             if 'Breach Passed' in df_enriched.columns:
@@ -682,259 +624,275 @@ else:
                 
                 with col2:
                     st.markdown('<div class="card">', unsafe_allow_html=True)
-                    if 'Status' in breach_df.columns:
-                        open_breaches = len(breach_df[breach_df['Status'].isin(['Open', 'In Progress', 'Pending', 'New'])])
+                    if 'SR Status' in breach_df.columns:
+                        open_breaches = len(breach_df[breach_df['SR Status'].isin(['Open', 'In Progress', 'Pending'])])
                         st.markdown(f'<p class="metric-value">{open_breaches}</p>', unsafe_allow_html=True)
                         st.markdown('<p class="metric-label">Open Breached Cases</p>', unsafe_allow_html=True)
                     else:
                         st.markdown('<p class="metric-value">N/A</p>', unsafe_allow_html=True)
-                        st.markdown('<p class="metric-label">Status Not Available</p>', unsafe_allow_html=True)
+                        st.markdown('<p class="metric-label">Open Breached Cases</p>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
                 
                 with col3:
                     st.markdown('<div class="card">', unsafe_allow_html=True)
-                    if 'Type' in breach_df.columns:
-                        sr_breaches = len(breach_df[breach_df['Type'] == 'SR'])
-                        st.markdown(f'<p class="metric-value">{sr_breaches}</p>', unsafe_allow_html=True)
-                        st.markdown('<p class="metric-label">SR Breaches</p>', unsafe_allow_html=True)
+                    if 'Current User Id' in breach_df.columns:
+                        user_breach_count = len(breach_df['Current User Id'].unique())
+                        st.markdown(f'<p class="metric-value">{user_breach_count}</p>', unsafe_allow_html=True)
+                        st.markdown('<p class="metric-label">Users Affected</p>', unsafe_allow_html=True)
                     else:
                         st.markdown('<p class="metric-value">N/A</p>', unsafe_allow_html=True)
-                        st.markdown('<p class="metric-label">SR Breaches</p>', unsafe_allow_html=True)
+                        st.markdown('<p class="metric-label">Users Affected</p>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
                 
-                # Breach details by type and status
-                if not breach_df.empty:
-                    st.subheader("📋 SLA Breach Details")
+                # Filtering options for breach data
+                st.subheader("🔍 Filter SLA Breaches")
+                
+                filter_col1, filter_col2 = st.columns(2)
+                
+                with filter_col1:
+                    if 'SR Status' in breach_df.columns:
+                        breach_status_options = ["All"] + breach_df['SR Status'].dropna().unique().tolist()
+                        breach_status_filter = st.selectbox("Filter by Status", breach_status_options)
+                    else:
+                        breach_status_filter = "All"
+                
+                with filter_col2:
+                    if 'Current User Id' in breach_df.columns:
+                        breach_user_options = ["All"] + breach_df['Current User Id'].dropna().unique().tolist()
+                        breach_user_filter = st.selectbox("Filter by User", breach_user_options)
+                    else:
+                        breach_user_filter = "All"
+                
+                # Apply filters
+                filtered_breach_df = breach_df.copy()
+                
+                if breach_status_filter != "All" and 'SR Status' in filtered_breach_df.columns:
+                    filtered_breach_df = filtered_breach_df[filtered_breach_df['SR Status'] == breach_status_filter]
+                
+                if breach_user_filter != "All" and 'Current User Id' in filtered_breach_df.columns:
+                    filtered_breach_df = filtered_breach_df[filtered_breach_df['Current User Id'] == breach_user_filter]
+                
+                # Breach data table
+                st.subheader("📋 SLA Breach Details")
+                
+                if filtered_breach_df.empty:
+                    st.info("No SLA breaches found matching the current filters.")
+                else:
+                    # Results count and download button
+                    results_col1, results_col2 = st.columns([3, 1])
                     
-                    # Filter options for breach analysis
-                    breach_col1, breach_col2 = st.columns(2)
+                    with results_col1:
+                        st.markdown(f"**Total Breached Records:** {filtered_breach_df.shape[0]}")
                     
-                    with breach_col1:
-                        breach_type_filter = st.selectbox(
-                            "Filter by Type (Breach)",
-                            ["All", "SR", "Incident"],
-                            key="breach_type"
-                        )
-                    
-                    with breach_col2:
-                        if 'Status' in breach_df.columns:
-                            breach_status_options = ["All"] + breach_df['Status'].dropna().unique().tolist()
-                            breach_status_filter = st.selectbox(
-                                "Filter by Status (Breach)",
-                                breach_status_options,
-                                key="breach_status"
-                            )
-                        else:
-                            breach_status_filter = "All"
-                    
-                    # Apply breach filters
-                    breach_display = breach_df.copy()
-                    
-                    if breach_type_filter != "All":
-                        breach_display = breach_display[breach_display["Type"] == breach_type_filter]
-                    
-                    if breach_status_filter != "All":
-                        breach_display = breach_display[breach_display["Status"] == breach_status_filter]
-                    
-                    # Display breach results
-                    st.markdown(f"**Total Breached Records:** {breach_display.shape[0]}")
-                    
-                    # Download button for breach data
-                    if not breach_display.empty:
-                        excel_breach_data = generate_excel_download(breach_display)
+                    with results_col2:
+                        excel_data = generate_excel_download(filtered_breach_df)
                         st.download_button(
-                            label="📥 Download Breach Analysis",
-                            data=excel_breach_data,
-                            file_name=f"sla_breach_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            label="📥 Download Breaches",
+                            data=excel_data,
+                            file_name=f"sla_breaches_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
                     
-                    # Breach data table
-                    breach_cols = ['Case Id', 'Current User Id', 'Case Start Date', 'Type', 'Ticket Number', 'Status', 'Last Update', 'Age (Days)']
-                    breach_display_cols = [col for col in breach_cols if col in breach_display.columns]
+                    # Important columns for breach display
+                    breach_display_cols = ['Case Id','Last Note', 'Current User Id', 'Case Start Date', 'Type', 'Ticket Number', 'SR Status', 'Breach Date']
                     
-                    if not breach_display.empty:
-                        st.dataframe(breach_display[breach_display_cols], hide_index=True)
-                    else:
-                        st.info("No breached cases match the selected filters.")
+                    # Ensure all columns exist
+                    breach_display_cols = [col for col in breach_display_cols if col in filtered_breach_df.columns]
+                    
+                    # Display breach data
+                    st.dataframe(filtered_breach_df[breach_display_cols], hide_index=True)
+                    
+                    # Detailed breach case viewer
+                    st.subheader("🔍 Breach Case Details")
+                    
+                    selected_breach_case = st.selectbox(
+                        "Select a breached case to view details:",
+                        filtered_breach_df['Case Id'].tolist()
+                    )
+                    
+                    if selected_breach_case:
+                        breach_row = filtered_breach_df[filtered_breach_df['Case Id'] == selected_breach_case].iloc[0]
                         
-                else:
-                    st.info("No SLA breaches found in the current dataset.")
+                        # Display case details in a table
+                        breach_details = {
+                            "Field": ["Case ID", "Owner", "Start Date", "Age", "Ticket Number", "Type"],
+                            "Value": [
+                                breach_row['Case Id'],
+                                breach_row['Current User Id'],
+                                breach_row['Case Start Date'].strftime('%Y-%m-%d'),
+                                f"{breach_row['Age (Days)']} days",
+                                int(breach_row['Ticket Number']) if not pd.isna(breach_row['Ticket Number']) else 'N/A',
+                                breach_row['Type'] if not pd.isna(breach_row['Type']) else 'N/A'
+                            ]
+                        }
+                        
+                        # Add SR Status if available
+                        if 'SR Status' in breach_row and not pd.isna(breach_row['SR Status']):
+                            breach_details["Field"].append("SR Status")
+                            breach_details["Value"].append(breach_row['SR Status'])
+                            
+                            if 'Last Update' in breach_row and not pd.isna(breach_row['Last Update']):
+                                breach_details["Field"].append("Last Update")
+                                breach_details["Value"].append(breach_row['Last Update'])
+                        
+                        # Display as a table
+                        st.table(pd.DataFrame(breach_details))
+                        
+                        # Display the full note
+                        st.markdown("### Last Note")
+                        if 'Last Note' in breach_row and not pd.isna(breach_row['Last Note']):
+                            st.text_area("Note Content", breach_row['Last Note'], height=200)
+                        else:
+                            st.info("No notes available for this case")
             else:
-                st.info("SLA breach information not available. Please ensure your SR/Incident status files contain 'Breach Passed' column.")
+                st.warning("SLA Breach information not available. Please ensure your SR Status file contains breach data.")
     
     #
     # TODAY'S SR/INCIDENTS TAB
     #
     elif selected == "Today's SR/Incidents":
-        st.title("📅 Today's New SR/Incidents")
+        st.title("📅 Today's SR/Incidents")
         
-        # Get today's cases
-        today = datetime.now().date()
-        
-        # Filter for cases with notes created today
+        # Filter to get today's entries
         if 'Created Today' in df_enriched.columns:
-            today_cases = df_enriched[df_enriched['Created Today'] == True].copy()
-        else:
-            # Fallback: filter by Last Note Date
-            today_cases = df_enriched[df_enriched['Last Note Date'].dt.date == today].copy() if 'Last Note Date' in df_enriched.columns else pd.DataFrame()
-        
-        # Further filter for SR/Incident cases only
-        today_sr_incidents = today_cases[today_cases['Triage Status'] == 'Pending SR/Incident'].copy()
-        
-        # Display summary
-        st.subheader("📊 Today's Summary")
-        
-        summary_today_col1, summary_today_col2, summary_today_col3 = st.columns(3)
-        
-        with summary_today_col1:
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            total_today = len(today_sr_incidents)
-            st.markdown(f'<p class="metric-value">{total_today}</p>', unsafe_allow_html=True)
-            st.markdown('<p class="metric-label">Total New SR/Incidents</p>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with summary_today_col2:
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            if 'Type' in today_sr_incidents.columns:
-                sr_today = len(today_sr_incidents[today_sr_incidents['Type'] == 'SR'])
-                st.markdown(f'<p class="metric-value">{sr_today}</p>', unsafe_allow_html=True)
-                st.markdown('<p class="metric-label">New SRs Today</p>', unsafe_allow_html=True)
-            else:
-                st.markdown('<p class="metric-value">N/A</p>', unsafe_allow_html=True)
-                st.markdown('<p class="metric-label">New SRs Today</p>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with summary_today_col3:
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            if 'Type' in today_sr_incidents.columns:
-                incident_today = len(today_sr_incidents[today_sr_incidents['Type'] == 'Incident'])
-                st.markdown(f'<p class="metric-value">{incident_today}</p>', unsafe_allow_html=True)
-                st.markdown('<p class="metric-label">New Incidents Today</p>', unsafe_allow_html=True)
-            else:
-                st.markdown('<p class="metric-value">N/A</p>', unsafe_allow_html=True)
-                st.markdown('<p class="metric-label">New Incidents Today</p>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Breakdown by user
-        if not today_sr_incidents.empty:
-            st.subheader("👥 Breakdown by User")
+            today_df = df_enriched[df_enriched['Created Today'] == True].copy()
             
-            user_breakdown = today_sr_incidents.groupby('Current User Id').agg({
-                'Case Id': 'count',
-                'Type': lambda x: (x == 'SR').sum(),
-                'Ticket Number': lambda x: (today_sr_incidents.loc[x.index, 'Type'] == 'Incident').sum()
-            }).rename(columns={
-                'Case Id': 'Total',
-                'Type': 'SRs',
-                'Ticket Number': 'Incidents'
-            })
+            # Display summary statistics
+            st.subheader("📊 Today's Activity Summary")
             
-            user_breakdown = user_breakdown.reset_index()
+            # Statistics cards
+            col1, col2, col3 = st.columns(3)
             
-            # Add total row
-            total_row = pd.DataFrame({
-                'Current User Id': ['TOTAL'],
-                'Total': [user_breakdown['Total'].sum()],
-                'SRs': [user_breakdown['SRs'].sum()],
-                'Incidents': [user_breakdown['Incidents'].sum()]
-            })
+            with col1:
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                today_count = len(today_df)
+                st.markdown(f'<p class="metric-value">{today_count}</p>', unsafe_allow_html=True)
+                st.markdown('<p class="metric-label">Total Today\'s Activities</p>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
             
-            user_breakdown_display = pd.concat([user_breakdown, total_row], ignore_index=True)
+            with col2:
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                sr_count = len(today_df[today_df['Type'] == 'SR'])
+                st.markdown(f'<p class="metric-value">{sr_count}</p>', unsafe_allow_html=True)
+                st.markdown('<p class="metric-label">Today\'s SRs</p>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
             
-            st.dataframe(
-                user_breakdown_display.style.apply(
-                    lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(user_breakdown_display)-1 else '' for _ in x],
-                    axis=1
-                )
-            )
+            with col3:
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                incident_count = len(today_df[today_df['Type'] == 'Incident'])
+                st.markdown(f'<p class="metric-value">{incident_count}</p>', unsafe_allow_html=True)
+                st.markdown('<p class="metric-label">Today\'s Incidents</p>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
             
-            # Filter options for today's data
-            st.subheader("🔍 Filter Today's Data")
+            # Filtering options for today's data
+            st.subheader("🔍 Filter Today's Activities")
             
-            today_col1, today_col2 = st.columns(2)
+            filter_col1, filter_col2 = st.columns(2)
             
-            with today_col1:
-                today_user_filter = st.selectbox(
-                    "Filter by User (Today)",
-                    ["All"] + today_sr_incidents['Current User Id'].unique().tolist(),
-                    key="today_user"
-                )
+            with filter_col1:
+                today_type_options = ["All", "SR", "Incident"]
+                today_type_filter = st.selectbox("Filter by Type", today_type_options)
             
-            with today_col2:
-                today_type_filter = st.selectbox(
-                    "Filter by Type (Today)",
-                    ["All", "SR", "Incident"],
-                    key="today_type"
-                )
+            with filter_col2:
+                if 'Current User Id' in today_df.columns:
+                    today_user_options = ["All"] + today_df['Current User Id'].dropna().unique().tolist()
+                    today_user_filter = st.selectbox("Filter by User", today_user_options)
+                else:
+                    today_user_filter = "All"
             
-            # Apply today's filters
-            today_display = today_sr_incidents.copy()
-            
-            if today_user_filter != "All":
-                today_display = today_display[today_display["Current User Id"] == today_user_filter]
+            # Apply filters
+            filtered_today_df = today_df.copy()
             
             if today_type_filter != "All":
-                today_display = today_display[today_display["Type"] == today_type_filter]
+                filtered_today_df = filtered_today_df[filtered_today_df['Type'] == today_type_filter]
             
-            # Display today's results
-            st.subheader("📋 Today's Details")
-            
-            results_today_col1, results_today_col2 = st.columns([3, 1])
-            
-            with results_today_col1:
-                st.markdown(f"**Filtered Records:** {today_display.shape[0]}")
-            
-            with results_today_col2:
-                if not today_display.empty:
-                    excel_today_data = generate_excel_download(today_display)
-                    st.download_button(
-                        label="📥 Download Today's Data",
-                        data=excel_today_data,
-                        file_name=f"todays_sr_incidents_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+            if today_user_filter != "All" and 'Current User Id' in filtered_today_df.columns:
+                filtered_today_df = filtered_today_df[filtered_today_df['Current User Id'] == today_user_filter]
             
             # Today's data table
-            today_cols = ['Case Id', 'Current User Id', 'Last Note Date', 'Type', 'Ticket Number']
-            if 'Status' in today_display.columns:
-                today_cols.extend(['Status', 'Last Update'])
+            st.subheader("📋 Today's Activities Details")
             
-            today_display_cols = [col for col in today_cols if col in today_display.columns]
-            
-            if not today_display.empty:
-                st.dataframe(today_display[today_display_cols], hide_index=True)
+            if filtered_today_df.empty:
+                st.info("No activities found today matching the current filters.")
             else:
-                st.info("No records match the selected filters for today.")
+                # Results count and download button
+                results_col1, results_col2 = st.columns([3, 1])
                 
-        else:
-            st.info("No new SR/Incidents found for today.")
-            
-            # Show all today's cases (not just SR/Incidents)
-            if not today_cases.empty:
-                st.subheader("📝 All Today's Cases")
-                st.markdown(f"**Total cases with notes today:** {len(today_cases)}")
+                with results_col1:
+                    st.markdown(f"**Total Today's Records:** {filtered_today_df.shape[0]}")
                 
-                all_today_cols = ['Case Id', 'Current User Id', 'Last Note Date', 'Triage Status']
-                all_today_display_cols = [col for col in all_today_cols if col in today_cases.columns]
+                with results_col2:
+                    excel_data = generate_excel_download(filtered_today_df)
+                    st.download_button(
+                        label="📥 Download Today's Data",
+                        data=excel_data,
+                        file_name=f"today_activities_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
                 
-                st.dataframe(today_cases[all_today_display_cols], hide_index=True)
+                # Important columns for today's display
+                today_display_cols = ['Case Id', 'Current User Id', 'Case Start Date', 'Type', 'Ticket Number', 'Status']
                 
-                # Download button for all today's cases
-                excel_all_today_data = generate_excel_download(today_cases)
-                st.download_button(
-                    label="📥 Download All Today's Cases",
-                    data=excel_all_today_data,
-                    file_name=f"all_todays_cases_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                # Add SR Status columns if available
+                if 'SR Status' in filtered_today_df.columns:
+                    today_display_cols.extend(['SR Status', 'Last Update'])
+                
+                # Ensure all columns exist
+                today_display_cols = [col for col in today_display_cols if col in filtered_today_df.columns]
+                
+                # Display today's data
+                st.dataframe(filtered_today_df[today_display_cols], hide_index=True)
+                
+                # Detailed today's case viewer
+                st.subheader("🔍 Today's Case Details")
+                
+                selected_today_case = st.selectbox(
+                    "Select a case to view details:",
+                    filtered_today_df['Case Id'].tolist()
                 )
-            else:
-                st.info("No cases found with notes created today.")
+                
+                if selected_today_case:
+                    today_row = filtered_today_df[filtered_today_df['Case Id'] == selected_today_case].iloc[0]
+                    
+                    # Display case details in a table
+                    today_details = {
+                        "Field": ["Case ID", "Owner", "Start Date", "Type", "Ticket Number", "Status"],
+                        "Value": [
+                            today_row['Case Id'],
+                            today_row['Current User Id'],
+                            today_row['Case Start Date'].strftime('%Y-%m-%d'),
+                            today_row['Type'] if not pd.isna(today_row['Type']) else 'N/A',
+                            int(today_row['Ticket Number']) if not pd.isna(today_row['Ticket Number']) else 'N/A',
+                            today_row['Status']
+                        ]
+                    }
+                    
+                    # Add SR Status if available
+                    if 'SR Status' in today_row and not pd.isna(today_row['SR Status']):
+                        today_details["Field"].append("SR Status")
+                        today_details["Value"].append(today_row['SR Status'])
+                        
+                        if 'Last Update' in today_row and not pd.isna(today_row['Last Update']):
+                            today_details["Field"].append("Last Update")
+                            today_details["Value"].append(today_row['Last Update'])
+                    
+                    # Display as a table
+                    st.table(pd.DataFrame(today_details))
+                    
+                    # Display the full note
+                    st.markdown("### Last Note")
+                    if 'Last Note' in today_row and not pd.isna(today_row['Last Note']):
+                        st.text_area("Note Content", today_row['Last Note'], height=200)
+                    else:
+                        st.info("No notes available for this case")
+        else:
+            st.warning("Today's data not available. Please ensure your main data includes 'Last Note Date' column.")
 
+# Add footer
 st.markdown("---")
 st.markdown(
     """<div style="text-align:center; color:#888; font-size:0.8em;">
-    Intellipen Analyzer v2.0 | Developed by Ali Babiker | © 2025
+    SR Analyzer Pro v2.0 | Developed by Ali Babiker | © 2025
     </div>""",
     unsafe_allow_html=True
 )
