@@ -572,7 +572,7 @@ else:
         
         with summary_col3:
             st.markdown("**🟢 SR Status Summary**")
-            if 'Status' in df_enriched.columns:
+            if 'Status' in df_enriched.columns and 'Type' in df_enriched.columns and not df_enriched[df_enriched['Type'] == 'SR'].empty:
                 # Drop rows where Status is NaN
                 df_status_valid = df_enriched.dropna(subset=['Status'])
                 
