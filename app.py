@@ -573,38 +573,42 @@ else:
         with summary_col3:
             st.markdown("**🟢 SR Status Summary**")
             if 'Status' in df_enriched.columns and 'Type' in df_enriched.columns and not df_enriched[df_enriched['Type'] == 'SR'].empty:
-                # Drop rows where Status is NaN
-                df_status_valid = df_enriched.dropna(subset=['Status'])
+                # Filter only for SRs
+                df_srs = df_enriched[df_enriched['Type'] == 'SR'].copy()
+                df_srs_status_valid = df_srs.dropna(subset=['Status'])
                 
-                # All status count
-                status_all_counts = df_status_valid['Status'].value_counts().rename_axis('Status').reset_index(name='All Count')
-                
-                # Unique tickets
-                ticket_unique = df_status_valid.dropna(subset=['Ticket Number'])[['Ticket Number', 'Status']].drop_duplicates()
-                ticket_unique_counts = ticket_unique['Status'].value_counts().rename_axis('Status').reset_index(name='Unique Count')
-                
-                # Merge both summaries
-                merged_status = pd.merge(status_all_counts, ticket_unique_counts, on='Status', how='outer').fillna(0)
-                merged_status[['All Count', 'Unique Count']] = merged_status[['All Count', 'Unique Count']].astype(int)
-                
-                # Total row
-                total_row = {
-                    'Status': 'Total',
-                    'All Count': merged_status['All Count'].sum(),
-                    'Unique Count': merged_status['Unique Count'].sum()
-                }
-                
-                status_summary_df = pd.concat([merged_status, pd.DataFrame([total_row])], ignore_index=True)
-                
-                # Display
-                st.dataframe(
-                    status_summary_df.style.apply(
-                        lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(status_summary_df)-1 else '' for _ in x],
-                        axis=1
+                if not df_srs_status_valid.empty:
+                    # All SR status count
+                    status_all_counts = df_srs_status_valid['Status'].value_counts().rename_axis('Status').reset_index(name='All Count')
+                    
+                    # Unique SR tickets
+                    ticket_unique = df_srs_status_valid.dropna(subset=['Ticket Number'])[['Ticket Number', 'Status']].drop_duplicates()
+                    ticket_unique_counts = ticket_unique['Status'].value_counts().rename_axis('Status').reset_index(name='Unique Count')
+                    
+                    # Merge both summaries
+                    merged_status = pd.merge(status_all_counts, ticket_unique_counts, on='Status', how='outer').fillna(0)
+                    merged_status[['All Count', 'Unique Count']] = merged_status[['All Count', 'Unique Count']].astype(int)
+                    
+                    # Total row
+                    total_row = {
+                        'Status': 'Total',
+                        'All Count': merged_status['All Count'].sum(),
+                        'Unique Count': merged_status['Unique Count'].sum()
+                    }
+                    
+                    status_summary_df = pd.concat([merged_status, pd.DataFrame([total_row])], ignore_index=True)
+                    
+                    # Display
+                    st.dataframe(
+                        status_summary_df.style.apply(
+                            lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(status_summary_df)-1 else '' for _ in x],
+                            axis=1
+                        )
                     )
-                )
+                else:
+                    st.info("No SRs with status information available.")
             else:
-                st.info("Upload SR/Incident Status files to view this summary.")
+                st.info("Upload SR Status Excel file to view SR Status Summary.")
 
         # Incident Status Summary
         with summary_col3: # Or create new columns if layout needs adjustment
