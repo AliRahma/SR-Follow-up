@@ -318,8 +318,8 @@ else:
     # Prepare tab interface
     selected = option_menu(
         menu_title=None,
-        options=["SR/Incident Analysis", "SLA Breach", "Today's SR/Incidents"],
-        icons=["kanban", "exclamation-triangle", "calendar-date"],
+        options=["Analysis", "SLA Breach", "Breached Incidents", "Today's SR/Incidents"],
+        icons=["kanban", "exclamation-triangle", "shield-exclamation", "calendar-date"],
         menu_icon="cast",
         default_index=0,
         orientation="horizontal",
@@ -395,10 +395,12 @@ else:
             incident_df = st.session_state.incident_df.copy()
             
             # Check for different possible column names for incident ID
+            # Prioritize "Incident Number"
+            incident_id_col_options = ['Incident Number', 'Incident ID', 'IncidentID', 'ID', 'Number']
             incident_id_col = None
-            for col in ['Incident ID', 'IncidentID', 'Incident Number', 'ID', 'Number']:
-                if col in incident_df.columns:
-                    incident_id_col = col
+            for col_option in incident_id_col_options:
+                if col_option in incident_df.columns:
+                    incident_id_col = col_option
                     break
             
             if incident_id_col:
@@ -406,36 +408,79 @@ else:
                 incident_df[incident_id_col] = incident_df[incident_id_col].astype(str).str.extract(r'(\d{4,})')
                 incident_df[incident_id_col] = pd.to_numeric(incident_df[incident_id_col], errors='coerce')
                 
-                # Rename columns for clarity
-                incident_df = incident_df.rename(columns={
-                    'Status': 'INC_Status',
-                    'LastModDateTime': 'INC_Last_Update',
-                    'Last Update': 'INC_Last_Update',
-                    'Last Checked atc': 'INC_Last_Update',
-                    incident_id_col: 'Incident_Number'
-                })
+                # Define columns to be used from incident_df
+                incident_rename_map = {incident_id_col: 'Incident_Number'}
+                incident_merge_cols = ['Incident_Number']
+
+                # Status column
+                if 'Status' in incident_df.columns:
+                    incident_rename_map['Status'] = 'INC_Status'
+                    incident_merge_cols.append('INC_Status')
+                else:
+                    st.warning("Column 'Status' not found in Incident report. Incident status will not be updated.")
+
+                # Last Update column - prioritize "Last Checked at"
+                last_update_col_incident = None
+                if 'Last Checked at' in incident_df.columns:
+                    last_update_col_incident = 'Last Checked at'
+                elif 'Last Checked atc' in incident_df.columns: # Handling typo
+                    last_update_col_incident = 'Last Checked atc'
+                elif 'LastModDateTime' in incident_df.columns: # Fallback
+                    last_update_col_incident = 'LastModDateTime'
+                elif 'Last Update' in incident_df.columns: # Fallback
+                    last_update_col_incident = 'Last Update'
+
+                if last_update_col_incident:
+                    incident_rename_map[last_update_col_incident] = 'INC_Last_Update'
+                    incident_merge_cols.append('INC_Last_Update')
+                else:
+                    st.warning("Suitable 'Last Update' column (e.g., 'Last Checked at') not found in Incident report. Incident last update time will not be updated.")
+
+                # Breach Indicator column
+                if 'Breach Passed' in incident_df.columns:
+                    incident_rename_map['Breach Passed'] = 'INC_Breach_Passed'
+                    incident_merge_cols.append('INC_Breach_Passed')
+                else:
+                    st.warning("Column 'Breach Passed' not found in Incident report. Incident breach status will not be updated.")
+
+                incident_df = incident_df.rename(columns=incident_rename_map)
                 
+                # Select only necessary columns for merging
+                incident_df_to_merge = incident_df[incident_merge_cols].copy()
+
                 # Merge Incident data
                 df_enriched = df_enriched.merge(
-                    incident_df[['Incident_Number', 'INC_Status', 'INC_Last_Update', 'Breach Passed']].fillna(method='ffill', axis=1),
+                    incident_df_to_merge,
                     how='left',
                     left_on='Ticket Number',
                     right_on='Incident_Number'
-                ).drop(columns=['Incident_Number'])
+                ).drop(columns=['Incident_Number'], errors='ignore')
                 
                 # Update Status and Last Update for Incidents
                 incident_mask = df_enriched['Type'] == 'Incident'
-                df_enriched.loc[incident_mask, 'Status'] = df_enriched.loc[incident_mask, 'INC_Status']
-                df_enriched.loc[incident_mask, 'Last Update'] = df_enriched.loc[incident_mask, 'INC_Last_Update']
                 
-                # For incidents, if Breach Passed from incident data is True, update the main Breach Passed
-                incident_breach_mask = (df_enriched['Type'] == 'Incident') & (df_enriched['Breach Passed_y'] == True)
-                df_enriched.loc[incident_breach_mask, 'Breach Passed'] = True
+                if 'INC_Status' in df_enriched.columns:
+                    df_enriched.loc[incident_mask, 'Status'] = df_enriched.loc[incident_mask, 'INC_Status']
+                if 'INC_Last_Update' in df_enriched.columns:
+                    df_enriched.loc[incident_mask, 'Last Update'] = df_enriched.loc[incident_mask, 'INC_Last_Update']
                 
-                # Drop temporary columns
-                df_enriched = df_enriched.drop(columns=['INC_Status', 'INC_Last_Update', 'Breach Passed_x', 'Breach Passed_y'], errors='ignore')
+                # Update Breach Passed for incidents
+                if 'INC_Breach_Passed' in df_enriched.columns:
+                    # Ensure INC_Breach_Passed is boolean
+                    df_enriched['INC_Breach_Passed'] = df_enriched['INC_Breach_Passed'].astype(bool)
+                    incident_breach_mask = (df_enriched['Type'] == 'Incident') & (df_enriched['INC_Breach_Passed'] == True)
+                    df_enriched.loc[incident_breach_mask, 'Breach Passed'] = True
+                
+                # Drop temporary INC columns
+                inc_cols_to_drop = [col for col in ['INC_Status', 'INC_Last_Update', 'INC_Breach_Passed'] if col in df_enriched.columns]
+                if inc_cols_to_drop:
+                    df_enriched = df_enriched.drop(columns=inc_cols_to_drop)
+            else:
+                st.warning("No suitable Incident ID column found in the Incident report. Incident data cannot be merged.")
         
-        # Clean up date columns
+        # Clean up date columns (ensure this is done after all merges and updates)
+        if 'Last Update' in df_enriched.columns:
+            df_enriched['Last Update'] = pd.to_datetime(df_enriched['Last Update'], errors='coerce')
         if 'Breach Date' in df_enriched.columns:
             df_enriched['Breach Date'] = pd.to_datetime(df_enriched['Breach Date'], errors='coerce')
             
@@ -448,10 +493,10 @@ else:
     st.session_state.filtered_df = df_enriched
     
     #
-    # SR/INCIDENT ANALYSIS TAB
+    # ANALYSIS TAB (Formerly SR/INCIDENT ANALYSIS)
     #
-    if selected == "SR/Incident Analysis":
-        st.title("🔍 SR/Incident Analysis")
+    if selected == "Analysis":
+        st.title("🔍 Analysis")
         
         # Display last update time
         st.markdown(f"**Last data update:** {st.session_state.last_upload_time}")
@@ -560,6 +605,48 @@ else:
                 )
             else:
                 st.info("Upload SR/Incident Status files to view this summary.")
+
+        # Incident Status Summary
+        with summary_col3: # Or create new columns if layout needs adjustment
+            st.markdown("**📊 Incident Status Summary**")
+            if 'Status' in df_enriched.columns and 'Type' in df_enriched.columns and not df_enriched[df_enriched['Type'] == 'Incident'].empty:
+                df_incidents = df_enriched[df_enriched['Type'] == 'Incident'].copy()
+                df_incidents_status_valid = df_incidents.dropna(subset=['Status'])
+
+                if not df_incidents_status_valid.empty:
+                    # All incident status count
+                    incident_status_all_counts = df_incidents_status_valid['Status'].value_counts().rename_axis('Status').reset_index(name='All Count')
+                    
+                    # Unique incident tickets
+                    incident_ticket_unique = df_incidents_status_valid.dropna(subset=['Ticket Number'])[['Ticket Number', 'Status']].drop_duplicates()
+                    incident_ticket_unique_counts = incident_ticket_unique['Status'].value_counts().rename_axis('Status').reset_index(name='Unique Count')
+                    
+                    # Merge both summaries for incidents
+                    merged_incident_status = pd.merge(incident_status_all_counts, incident_ticket_unique_counts, on='Status', how='outer').fillna(0)
+                    merged_incident_status[['All Count', 'Unique Count']] = merged_incident_status[['All Count', 'Unique Count']].astype(int)
+                    
+                    # Total row for incidents
+                    incident_total_row = {
+                        'Status': 'Total',
+                        'All Count': merged_incident_status['All Count'].sum(),
+                        'Unique Count': merged_incident_status['Unique Count'].sum()
+                    }
+                    
+                    incident_status_summary_df = pd.concat([merged_incident_status, pd.DataFrame([incident_total_row])], ignore_index=True)
+                    
+                    # Display Incident Status Summary
+                    st.dataframe(
+                        incident_status_summary_df.style.apply(
+                            lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(incident_status_summary_df)-1 else '' for _ in x],
+                            axis=1
+                        )
+                    )
+                else:
+                    st.info("No incidents with status information available to summarize.")
+            elif st.session_state.incident_df is None:
+                st.info("Upload Incident Report Excel file to view Incident Status Summary.")
+            else:
+                st.info("No incident data available to summarize.")
         
         # Detailed Results
         st.subheader("📋 Filtered Results")
@@ -930,6 +1017,68 @@ else:
                 )
             else:
                 st.info("No cases found with notes created today.")
+
+    #
+    # BREACHED INCIDENTS TAB
+    #
+    elif selected == "Breached Incidents":
+        st.title("🔥 Breached Incidents")
+
+        if st.session_state.incident_df is None:
+            st.warning("Please upload an Incident Report Excel file to view Breached Incidents.")
+        elif st.session_state.filtered_df is None:
+            st.warning("Main data not processed yet. Please ensure main file is uploaded and processed.")
+        else:
+            df_enriched_copy = st.session_state.filtered_df.copy()
+            
+            # Ensure 'Type' and 'Breach Passed' columns exist
+            if 'Type' not in df_enriched_copy.columns or 'Breach Passed' not in df_enriched_copy.columns:
+                st.error("Required columns ('Type' or 'Breach Passed') are missing from the data. Cannot display breached incidents.")
+            else:
+                # Filter for breached incidents
+                breached_incidents_df = df_enriched_copy[
+                    (df_enriched_copy['Type'] == 'Incident') & 
+                    (df_enriched_copy['Breach Passed'] == True)
+                ].copy()
+
+                # Display summary statistics
+                st.subheader("📊 Breached Incidents Summary")
+                
+                # Statistics card for total breached incidents
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                total_breached_incidents = len(breached_incidents_df)
+                st.markdown(f'<p class="metric-value">{total_breached_incidents}</p>', unsafe_allow_html=True)
+                st.markdown('<p class="metric-label">Total Breached Incidents</p>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                if not breached_incidents_df.empty:
+                    st.subheader("📋 Breached Incidents Details")
+                    
+                    # Filter options (optional, can be added later if needed)
+                    # For now, just display all breached incidents
+                    
+                    # Display breached incidents results
+                    results_col1, results_col2 = st.columns([3,1])
+                    with results_col1:
+                        st.markdown(f"**Total Breached Incident Records:** {breached_incidents_df.shape[0]}")
+                    
+                    with results_col2:
+                        excel_breached_incidents_data = generate_excel_download(breached_incidents_df)
+                        st.download_button(
+                            label="📥 Download Breached Incidents",
+                            data=excel_breached_incidents_data,
+                            file_name=f"breached_incidents_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    
+                    # Breached incidents data table
+                    breached_incidents_cols = ['Case Id', 'Current User Id', 'Ticket Number', 'Status', 'Last Update', 'Age (Days)', 'Last Note']
+                    # Ensure all display columns exist in the dataframe
+                    breached_incidents_display_cols = [col for col in breached_incidents_cols if col in breached_incidents_df.columns]
+                    
+                    st.dataframe(breached_incidents_df[breached_incidents_display_cols], hide_index=True)
+                else:
+                    st.info("No breached incidents found in the current dataset.")
 
 st.markdown("---")
 st.markdown(
