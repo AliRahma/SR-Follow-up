@@ -933,4 +933,4 @@ else:
 
 # Footer
 st.markdown("---")
-st.markdown("**SR Analyzer Pro Enhanced** - Version 2.0 | Built with Streamlit")
+st.markdown("**SR Analyzer Pro Enhanced** - Version 2.0 | Developed by Ali Babiker")
