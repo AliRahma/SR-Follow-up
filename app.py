@@ -411,7 +411,7 @@ else:
                     'Status': 'INC_Status',
                     'LastModDateTime': 'INC_Last_Update',
                     'Last Update': 'INC_Last_Update',
-                    'Modified Date': 'INC_Last_Update',
+                    'Last Checked atc': 'INC_Last_Update',
                     incident_id_col: 'Incident_Number'
                 })
                 
