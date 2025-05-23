@@ -158,8 +158,8 @@ def classify_and_extract(note):
         
     if match:
         ticket_num = int(match.group(2))
-        # SR numbers typically between 14000-16000 (adjust based on your system)
-        ticket_type = "SR" if 14000 <= ticket_num <= 17000 else "Incident"
+        # SR numbers typically between 14000-18000 (adjust based on your system)
+        ticket_type = "SR" if 14000 <= ticket_num <= 18000 else "Incident"
         return "Pending SR/Incident", ticket_num, ticket_type
     
     return "Not Triaged", None, None
