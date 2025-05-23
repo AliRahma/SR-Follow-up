@@ -687,7 +687,7 @@ else:
                         st.markdown(f'<p class="metric-value">{open_breaches}</p>', unsafe_allow_html=True)
                         st.markdown('<p class="metric-label">Open Breached Cases</p>', unsafe_allow_html=True)
                     else:
-                        st.markdown('<p class="metric-value">N/A</p>', unsafe_allow_html=True
+                        st.markdown('<p class="metric-value">N/A</p>', unsafe_allow_html=True)
                         st.markdown('<p class="metric-label">Status Not Available</p>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
                 
