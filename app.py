@@ -396,7 +396,7 @@ else:
             
             # Check for different possible column names for incident ID
             # Prioritize "Incident Number"
-            incident_id_col_options = ['Incident Number', 'Incident ID', 'IncidentID', 'ID', 'Number']
+            incident_id_col_options = ['Incident', 'Incident ID', 'IncidentID', 'ID', 'Number']
             incident_id_col = None
             for col_option in incident_id_col_options:
                 if col_option in incident_df.columns:
