@@ -611,7 +611,7 @@ else:
                 st.info("Upload SR Status Excel file to view SR Status Summary.")
 
         # Incident Status Summary
-        with summary_col3: # Or create new columns if layout needs adjustment
+        # with summary_col3: # Or create new columns if layout needs adjustment
             st.markdown("**🟣 Incident Status Summary**")
             if 'Status' in df_enriched.columns and 'Type' in df_enriched.columns and not df_enriched[df_enriched['Type'] == 'Incident'].empty:
                 df_incidents = df_enriched[df_enriched['Type'] == 'Incident'].copy()
