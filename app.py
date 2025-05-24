@@ -502,7 +502,7 @@ else:
         st.markdown(f"**Last data update:** {st.session_state.last_upload_time}")
         
         # Filtering options
-        col1, col2, col3,col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             status_filter = st.selectbox(
@@ -542,7 +542,7 @@ else:
         # Statistics and summary
         st.subheader("📊 Summary Analysis")
         
-        summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
+        summary_col1, summary_col2, summary_col3 = st.columns(e)
         
         with summary_col1:
             st.markdown("**🔸 Triage Status Count**")
@@ -610,7 +610,7 @@ else:
                 st.info("Upload SR Status Excel file to view SR Status Summary.")
 
         #Incident Status Summary
-        with summary_col4: # Or create new columns if layout needs adjustment
+        with summary_col3: # Or create new columns if layout needs adjustment
             st.markdown("**🟣 Incident Status Summary**")
             if 'Status' in df_enriched.columns and 'Type' in df_enriched.columns and not df_enriched[df_enriched['Type'] == 'Incident'].empty:
                 df_incidents = df_enriched[df_enriched['Type'] == 'Incident'].copy()
