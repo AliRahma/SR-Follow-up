@@ -502,7 +502,7 @@ else:
         st.markdown(f"**Last data update:** {st.session_state.last_upload_time}")
         
         # Filtering options
-        col1, col2 = st.columns(2)
+        col1, col2,col3 = st.columns(3)
         
         with col1:
             status_filter = st.selectbox(
