@@ -280,7 +280,7 @@ with st.sidebar:
 if not st.session_state.data_loaded:
     st.title("📊 Intellipen Analyzer Pro Enhanced")
     st.markdown("""
-    ### Welcome to the Enhanced SR Analyzer Pro!
+    ### Welcome to the Enhanced Intellipen Analyzer Pro!
     
     This application helps you analyze Service Requests and Incidents efficiently.
     
