@@ -502,7 +502,7 @@ else:
         st.markdown(f"**Last data update:** {st.session_state.last_upload_time}")
         
         # Filtering options
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3,col4 = st.columns(4)
         
         with col1:
             status_filter = st.selectbox(
@@ -556,7 +556,45 @@ else:
                     axis=1
                 )
             )
-        
+        st.markdown("**🟣 Incident Status Summary**")
+            if 'Status' in df_enriched.columns and 'Type' in df_enriched.columns and not df_enriched[df_enriched['Type'] == 'Incident'].empty:
+                df_incidents = df_enriched[df_enriched['Type'] == 'Incident'].copy()
+                df_incidents_status_valid = df_incidents.dropna(subset=['Status'])
+
+                if not df_incidents_status_valid.empty:
+                    # All incident status count
+                    incident_status_all_counts = df_incidents_status_valid['Status'].value_counts().rename_axis('Status').reset_index(name='All Count')
+                    
+                    # Unique incident tickets
+                    incident_ticket_unique = df_incidents_status_valid.dropna(subset=['Ticket Number'])[['Ticket Number', 'Status']].drop_duplicates()
+                    incident_ticket_unique_counts = incident_ticket_unique['Status'].value_counts().rename_axis('Status').reset_index(name='Unique Count')
+                    
+                    # Merge both summaries for incidents
+                    merged_incident_status = pd.merge(incident_status_all_counts, incident_ticket_unique_counts, on='Status', how='outer').fillna(0)
+                    merged_incident_status[['All Count', 'Unique Count']] = merged_incident_status[['All Count', 'Unique Count']].astype(int)
+                    
+                    # Total row for incidents
+                    incident_total_row = {
+                        'Status': 'Total',
+                        'All Count': merged_incident_status['All Count'].sum(),
+                        'Unique Count': merged_incident_status['Unique Count'].sum()
+                    }
+                    
+                    incident_status_summary_df = pd.concat([merged_incident_status, pd.DataFrame([incident_total_row])], ignore_index=True)
+                    
+                    # Display Incident Status Summary
+                    st.dataframe(
+                        incident_status_summary_df.style.apply(
+                            lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(incident_status_summary_df)-1 else '' for _ in x],
+                            axis=1
+                        )
+                    )
+                else:
+                    st.info("No incidents with status information available to summarize.")
+            elif st.session_state.incident_df is None:
+                st.info("Upload Incident Report Excel file to view Incident Status Summary.")
+            else:
+                st.info("No incident data available to summarize.")
         with summary_col2:
             st.markdown("**🔹 SR vs Incident Count**")
             type_summary = df_enriched['Type'].value_counts().rename_axis('Type').reset_index(name='Count')
@@ -570,7 +608,7 @@ else:
                 )
             )
         
-        # with summary_col3:
+        with summary_col3:
             st.markdown("**🟢 SR Status Summary**")
             if 'Status' in df_enriched.columns and 'Type' in df_enriched.columns and not df_enriched[df_enriched['Type'] == 'SR'].empty:
                 # Filter only for SRs
@@ -610,8 +648,8 @@ else:
             else:
                 st.info("Upload SR Status Excel file to view SR Status Summary.")
 
-        # Incident Status Summary
-        # with summary_col3: # Or create new columns if layout needs adjustment
+        #Incident Status Summary
+        with summary_col4: # Or create new columns if layout needs adjustment
             st.markdown("**🟣 Incident Status Summary**")
             if 'Status' in df_enriched.columns and 'Type' in df_enriched.columns and not df_enriched[df_enriched['Type'] == 'Incident'].empty:
                 df_incidents = df_enriched[df_enriched['Type'] == 'Incident'].copy()
