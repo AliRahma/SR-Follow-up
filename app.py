@@ -293,7 +293,7 @@ if not st.session_state.data_loaded:
     **Enhanced Features:**
     - Advanced filtering and search
     - Detailed SR and Incident Analysis
-    - SLA Breach monitoring
+    - SLA/Incident Breach monitoring
     - Today's new incidents and SRs
     - Unified Status tracking for both SRs and Incidents
     """)
