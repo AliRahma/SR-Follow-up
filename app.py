@@ -570,7 +570,7 @@ else:
                 )
             )
         
-        with summary_col3:
+        # with summary_col3:
             st.markdown("**🟢 SR Status Summary**")
             if 'Status' in df_enriched.columns and 'Type' in df_enriched.columns and not df_enriched[df_enriched['Type'] == 'SR'].empty:
                 # Filter only for SRs
