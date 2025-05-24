@@ -542,7 +542,7 @@ else:
         # Statistics and summary
         st.subheader("📊 Summary Analysis")
         
-        summary_col1, summary_col2, summary_col3 = st.columns(e)
+        summary_col1, summary_col2, summary_col3 = st.columns(3)
         
         with summary_col1:
             st.markdown("**🔸 Triage Status Count**")
