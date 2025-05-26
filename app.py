@@ -477,7 +477,16 @@ else:
                     df_enriched = df_enriched.drop(columns=inc_cols_to_drop)
             else:
                 st.warning("No suitable Incident ID column found in the Incident report. Incident data cannot be merged.")
-        
+            
+             # Final check - ensure no duplicates in the final dataframe
+            final_length = len(df_enriched)
+            if final_length != original_length:
+                st.warning(f"Data length changed during processing. Original: {original_length}, Final: {final_length}")
+                # If there are duplicates, remove them
+                if final_length > original_length:
+                    df_enriched = df_enriched.drop_duplicates(subset=['Case Id'], keep='first')
+                    st.info(f"Removed final duplicates. Count after cleanup: {len(df_enriched)}")
+    
         # Clean up date columns (ensure this is done after all merges and updates)
         if 'Last Update' in df_enriched.columns:
             df_enriched['Last Update'] = pd.to_datetime(df_enriched['Last Update'], errors='coerce')
