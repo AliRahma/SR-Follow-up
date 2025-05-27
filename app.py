@@ -448,6 +448,19 @@ else:
                 # Select only necessary columns for merging
                 incident_df_to_merge = incident_df[incident_merge_cols].copy()
 
+                
+                # Logging before incident merge
+                st.write("Before incident merge:")
+                st.write(f"Before incident merge - df_enriched shape: {df_enriched.shape}")
+                st.write(f"Before incident merge - Not Triaged count: {df_enriched[df_enriched['Triage Status'] == 'Not Triaged'].shape[0]}")
+                st.write(f"Before incident merge - NaN Ticket Number count: {df_enriched['Ticket Number'].isna().sum()}")
+                if 'incident_df_to_merge' in locals() and incident_df_to_merge is not None:
+                    st.write(f"Before incident merge - incident_df_to_merge shape: {incident_df_to_merge.shape}")
+                    if 'Incident_Number' in incident_df_to_merge.columns:
+                        st.write(f"Before incident merge - NaN Incident_Number in incident_df_to_merge count: {incident_df_to_merge['Incident_Number'].isna().sum()}")
+                    else:
+                        st.write("Before incident merge - 'Incident_Number' column not found in incident_df_to_merge")
+
                 # Merge Incident data
                 df_enriched = df_enriched.merge(
                     incident_df_to_merge,
@@ -455,6 +468,12 @@ else:
                     left_on='Ticket Number',
                     right_on='Incident_Number'
                 ).drop(columns=['Incident_Number'], errors='ignore')
+                
+                # Logging after incident merge
+                st.write("After incident merge:")
+                st.write(f"After incident merge - df_enriched shape: {df_enriched.shape}")
+                st.write(f"After incident merge - Not Triaged count: {df_enriched[df_enriched['Triage Status'] == 'Not Triaged'].shape[0]}")
+                st.write(f"After incident merge - NaN Ticket Number count: {df_enriched['Ticket Number'].isna().sum()}")
                 
                 # Update Status and Last Update for Incidents
                 incident_mask = df_enriched['Type'] == 'Incident'
@@ -626,12 +645,12 @@ else:
                     
                     # Merge both summaries for incidents
                     merged_incident_status = pd.merge(incident_status_all_counts, incident_ticket_unique_counts, on='Status', how='outer').fillna(0)
-                    merged_incident_status[['All Count', 'Unique Count']] = merged_incident_status[['All Count', 'Unique Count']].astype(int)
+                    merged_incident_status[['Cases Count', 'Unique Count']] = merged_incident_status[['All Count', 'Unique Count']].astype(int)
                     
                     # Total row for incidents
                     incident_total_row = {
                         'Status': 'Total',
-                        'All Count': merged_incident_status['All Count'].sum(),
+                        'Cases Count': merged_incident_status['Cases Count'].sum(),
                         'Unique Count': merged_incident_status['Unique Count'].sum()
                     }
                     
