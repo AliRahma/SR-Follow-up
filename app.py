@@ -448,6 +448,10 @@ else:
                 # Select only necessary columns for merging
                 incident_df_to_merge = incident_df[incident_merge_cols].copy()
 
+                # Filter out NaN Incident_Numbers from incident_df_to_merge before merging
+                if 'Incident_Number' in incident_df_to_merge.columns:
+                    incident_df_to_merge = incident_df_to_merge.dropna(subset=['Incident_Number'])
+
                 # Merge Incident data
                 df_enriched = df_enriched.merge(
                     incident_df_to_merge,
