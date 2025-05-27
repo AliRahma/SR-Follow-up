@@ -618,7 +618,7 @@ else:
 
                 if not df_incidents_status_valid.empty:
                     # All incident status count
-                    incident_status_all_counts = df_incidents_status_valid['Status'].value_counts().rename_axis('Status').reset_index(name='All Count')
+                    incident_status_all_counts = df_incidents_status_valid['Status'].value_counts().rename_axis('Status').reset_index(name='Cases Count')
                     
                     # Unique incident tickets
                     incident_ticket_unique = df_incidents_status_valid.dropna(subset=['Ticket Number'])[['Ticket Number', 'Status']].drop_duplicates()
