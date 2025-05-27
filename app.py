@@ -426,7 +426,7 @@ else:
                 elif 'Last Checked atc' in incident_df.columns: # Handling typo
                     last_update_col_incident = 'Last Checked atc'
                 elif 'Modified On' in incident_df.columns: # Fallback
-                    last_update_col_incident = 'LastModDateTime'
+                    last_update_col_incident = 'Modified On'
                 elif 'Last Update' in incident_df.columns: # Fallback
                     last_update_col_incident = 'Last Update'
 
