@@ -236,23 +236,25 @@ with st.sidebar:
     if uploaded_file:
         with st.spinner("Loading main data..."):
             df = load_data(uploaded_file)
-            st.session_state.main_df = process_main_df(df)
-            st.session_state.last_upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        st.success(f"Main data loaded: {df.shape[0]} records")
-        st.session_state.data_loaded = True
+            if df is not None:
+                st.session_state.main_df = process_main_df(df)
+                st.session_state.last_upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                st.success(f"Main data loaded: {df.shape[0]} records") # Ensure this is also within the check
+                st.session_state.data_loaded = True
     
     if sr_status_file:
         with st.spinner("Loading SR status data..."):
             sr_df = load_data(sr_status_file)
-            st.session_state.sr_df = sr_df
-        st.success(f"SR status data loaded: {sr_df.shape[0]} records")
+            if sr_df is not None: # Add this check
+                st.session_state.sr_df = sr_df
+                st.success(f"SR status data loaded: {sr_df.shape[0]} records")
     
     if incident_status_file:
         with st.spinner("Loading incident report data..."):
             incident_df = load_data(incident_status_file)
-            st.session_state.incident_df = incident_df
-        st.success(f"Incident report data loaded: {incident_df.shape[0]} records")
+            if incident_df is not None: # Add this check
+                st.session_state.incident_df = incident_df
+                st.success(f"Incident report data loaded: {incident_df.shape[0]} records")
     
     # Display last upload time
     abu_dhabi_tz = pytz.timezone('Asia/Dubai')
