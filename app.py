@@ -318,7 +318,7 @@ else:
     # Prepare tab interface
     selected = option_menu(
         menu_title=None,
-        options=["Analysis", "SLA Breach", "Breached Incidents", "Today's SR/Incidents"],
+        options=["Analysis", "SLA Breach", "Today's SR/Incidents"],
         icons=["kanban", "exclamation-triangle", "shield-exclamation", "calendar-date"],
         menu_icon="cast",
         default_index=0,
