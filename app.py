@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 import pandas as pd
 import numpy as np
 import re
@@ -129,7 +130,23 @@ if 'selected_case_ids' not in st.session_state:
 # Function to load and process data
 @st.cache_data
 def load_data(file):
-    return pd.read_excel(file)
+    if file is None:
+        return None
+    
+    try:
+        file_name = file.name
+        file_extension = os.path.splitext(file_name)[1].lower()
+        
+        if file_extension == '.xls':
+            return pd.read_excel(file, engine='xlrd')
+        elif file_extension == '.xlsx':
+            return pd.read_excel(file, engine='openpyxl')
+        else:
+            raise ValueError("Unsupported file type. Please upload .xls or .xlsx files.")
+            
+    except Exception as e:
+        st.error(f"Error loading file: {e}")
+        return None
 
 # Function to process main dataframe
 def process_main_df(df):
