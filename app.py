@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 import pandas as pd
 import numpy as np
 import re
@@ -129,7 +130,33 @@ if 'selected_case_ids' not in st.session_state:
 # Function to load and process data
 @st.cache_data
 def load_data(file):
-    return pd.read_excel(file)
+    if file is None:
+        return None
+    
+    try:
+        file_name = file.name
+        file_extension = os.path.splitext(file_name)[1].lower()
+        
+        if file_extension == '.xls':
+            try:
+                # First attempt with xlrd
+                return pd.read_excel(file, engine='xlrd')
+            except Exception: # Catch errors from xlrd
+                try:
+                    file.seek(0) # Reset file pointer
+                    # Second attempt with openpyxl
+                    return pd.read_excel(file, engine='openpyxl')
+                except Exception as e_openpyxl:
+                    # If openpyxl also fails, raise the error to be caught by the main handler
+                    raise e_openpyxl
+        elif file_extension == '.xlsx':
+            return pd.read_excel(file, engine='openpyxl')
+        else:
+            raise ValueError("Unsupported file type. Please upload .xls or .xlsx files.")
+            
+    except Exception as e:
+        st.error(f"Error loading file: {e}")
+        return None
 
 # Function to process main dataframe
 def process_main_df(df):
@@ -219,23 +246,25 @@ with st.sidebar:
     if uploaded_file:
         with st.spinner("Loading main data..."):
             df = load_data(uploaded_file)
-            st.session_state.main_df = process_main_df(df)
-            st.session_state.last_upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        st.success(f"Main data loaded: {df.shape[0]} records")
-        st.session_state.data_loaded = True
+            if df is not None:
+                st.session_state.main_df = process_main_df(df)
+                st.session_state.last_upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                st.success(f"Main data loaded: {df.shape[0]} records") # Ensure this is also within the check
+                st.session_state.data_loaded = True
     
     if sr_status_file:
         with st.spinner("Loading SR status data..."):
             sr_df = load_data(sr_status_file)
-            st.session_state.sr_df = sr_df
-        st.success(f"SR status data loaded: {sr_df.shape[0]} records")
+            if sr_df is not None: # Add this check
+                st.session_state.sr_df = sr_df
+                st.success(f"SR status data loaded: {sr_df.shape[0]} records")
     
     if incident_status_file:
         with st.spinner("Loading incident report data..."):
             incident_df = load_data(incident_status_file)
-            st.session_state.incident_df = incident_df
-        st.success(f"Incident report data loaded: {incident_df.shape[0]} records")
+            if incident_df is not None: # Add this check
+                st.session_state.incident_df = incident_df
+                st.success(f"Incident report data loaded: {incident_df.shape[0]} records")
     
     # Display last upload time
     abu_dhabi_tz = pytz.timezone('Asia/Dubai')
