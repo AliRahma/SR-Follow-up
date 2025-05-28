@@ -1028,7 +1028,7 @@ else:
 st.markdown("---")
 st.markdown(
     """<div style="text-align:center; color:#888; font-size:0.8em;">
-    Intellipen Analyzer v2.1 | Developed by Ali Babiker | © 2025
+    Intellipen Analyzer v2.5 | Developed by Ali Babiker | © 2025
     </div>""",
     unsafe_allow_html=True
 )
