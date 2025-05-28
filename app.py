@@ -1025,68 +1025,6 @@ else:
             else:
                 st.info("No cases found with notes created today.")
 
-    #
-    # BREACHED INCIDENTS TAB
-    #
-    elif selected == "Breached Incidents":
-        st.title("🔥 Breached Incidents")
-
-        if st.session_state.incident_df is None:
-            st.warning("Please upload an Incident Report Excel file to view Breached Incidents.")
-        elif st.session_state.filtered_df is None:
-            st.warning("Main data not processed yet. Please ensure main file is uploaded and processed.")
-        else:
-            df_enriched_copy = st.session_state.filtered_df.copy()
-            
-            # Ensure 'Type' and 'Breach Passed' columns exist
-            if 'Type' not in df_enriched_copy.columns or 'Breach Passed' not in df_enriched_copy.columns:
-                st.error("Required columns ('Type' or 'Breach Passed') are missing from the data. Cannot display breached incidents.")
-            else:
-                # Filter for breached incidents
-                breached_incidents_df = df_enriched_copy[
-                    (df_enriched_copy['Type'] == 'Incident') & 
-                    (df_enriched_copy['Breach Passed'] == True)
-                ].copy()
-
-                # Display summary statistics
-                st.subheader("📊 Breached Incidents Summary")
-                
-                # Statistics card for total breached incidents
-                st.markdown('<div class="card">', unsafe_allow_html=True)
-                total_breached_incidents = len(breached_incidents_df)
-                st.markdown(f'<p class="metric-value">{total_breached_incidents}</p>', unsafe_allow_html=True)
-                st.markdown('<p class="metric-label">Total Breached Incidents</p>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-                if not breached_incidents_df.empty:
-                    st.subheader("📋 Breached Incidents Details")
-                    
-                    # Filter options (optional, can be added later if needed)
-                    # For now, just display all breached incidents
-                    
-                    # Display breached incidents results
-                    results_col1, results_col2 = st.columns([3,1])
-                    with results_col1:
-                        st.markdown(f"**Total Breached Incident Records:** {breached_incidents_df.shape[0]}")
-                    
-                    with results_col2:
-                        excel_breached_incidents_data = generate_excel_download(breached_incidents_df)
-                        st.download_button(
-                            label="📥 Download Breached Incidents",
-                            data=excel_breached_incidents_data,
-                            file_name=f"breached_incidents_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
-                    
-                    # Breached incidents data table
-                    breached_incidents_cols = ['Case Id', 'Current User Id', 'Ticket Number', 'Status', 'Last Update', 'Age (Days)', 'Last Note']
-                    # Ensure all display columns exist in the dataframe
-                    breached_incidents_display_cols = [col for col in breached_incidents_cols if col in breached_incidents_df.columns]
-                    
-                    st.dataframe(breached_incidents_df[breached_incidents_display_cols], hide_index=True)
-                else:
-                    st.info("No breached incidents found in the current dataset.")
-
 st.markdown("---")
 st.markdown(
     """<div style="text-align:center; color:#888; font-size:0.8em;">
