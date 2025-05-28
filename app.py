@@ -149,6 +149,8 @@ def load_data(file):
                 except Exception as e_openpyxl:
                     # If openpyxl also fails, raise the error to be caught by the main handler
                     raise e_openpyxl
+            return pd.read_excel(file, engine='xlrd')
+
         elif file_extension == '.xlsx':
             return pd.read_excel(file, engine='openpyxl')
         else:
