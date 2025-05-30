@@ -8,6 +8,7 @@ import base64
 from datetime import datetime, timedelta
 import pytz
 from streamlit_option_menu import option_menu
+import plotly.express as px
 
 # Set page configuration
 st.set_page_config(
@@ -126,6 +127,8 @@ if 'selected_users' not in st.session_state:
     st.session_state.selected_users = []
 if 'selected_case_ids' not in st.session_state:
     st.session_state.selected_case_ids = []
+if 'incident_overview_df' not in st.session_state:
+    st.session_state.incident_overview_df = None
 
 # Function to load and process data
 @st.cache_data
@@ -267,6 +270,22 @@ with st.sidebar:
             if incident_df is not None: # Add this check
                 st.session_state.incident_df = incident_df
                 st.success(f"Incident report data loaded: {incident_df.shape[0]} records")
+
+                # Process for Incident Overview tab
+                required_cols = ["Customer", "Incident", "Team", "Priority"]
+                missing_cols = [col for col in required_cols if col not in incident_df.columns]
+
+                if not missing_cols:
+                    # Select and rename columns for the overview tab
+                    overview_df = incident_df[required_cols].copy()
+                    overview_df.rename(columns={"Customer": "Creator"}, inplace=True)
+                    st.session_state.incident_overview_df = overview_df
+                    st.success(f"Incident Overview data loaded successfully: {len(overview_df)} records.")
+                else:
+                    st.session_state.incident_overview_df = None
+                    st.error(f"Incident Report Excel is missing required columns for Overview: {', '.join(missing_cols)}. Please upload a file with these columns.")
+            else:
+                st.session_state.incident_overview_df = None # Ensure it's None if file loading failed
     
     # Display last upload time
     abu_dhabi_tz = pytz.timezone('Asia/Dubai')
@@ -349,8 +368,8 @@ else:
     # Prepare tab interface
     selected = option_menu(
         menu_title=None,
-        options=["Analysis", "SLA Breach", "Today's SR/Incidents"],
-        icons=["kanban", "exclamation-triangle", "shield-exclamation", "calendar-date"],
+        options=["Analysis", "SLA Breach", "Today's SR/Incidents", "Incident Overview"],
+        icons=["kanban", "exclamation-triangle", "calendar-date", "clipboard-data"],
         menu_icon="cast",
         default_index=0,
         orientation="horizontal",
@@ -1055,6 +1074,176 @@ else:
                 )
             else:
                 st.info("No cases found with notes created today.")
+
+elif selected == "Incident Overview":
+    st.title("📋 Incident Overview")
+
+    if 'incident_overview_df' not in st.session_state or st.session_state.incident_overview_df is None or st.session_state.incident_overview_df.empty:
+        st.warning(
+            "The 'Incident Report Excel' has not been uploaded or is missing the required columns "
+            "('Customer', 'Incident', 'Team', 'Priority'). "
+            "Please upload the correct file via the sidebar to view the Incident Overview."
+        )
+    else:
+        overview_df = st.session_state.incident_overview_df.copy() # Work with a copy
+
+        st.subheader("Filter Incidents")
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            unique_creators = sorted(overview_df['Creator'].dropna().unique())
+            selected_creators = st.multiselect(
+                "Filter by Creator",
+                options=unique_creators,
+                default=[] 
+            )
+
+        with col2:
+            unique_teams = sorted(overview_df['Team'].dropna().unique())
+            selected_teams = st.multiselect(
+                "Filter by Team",
+                options=unique_teams,
+                default=[]
+            )
+
+        with col3:
+            unique_priorities = sorted(overview_df['Priority'].dropna().unique())
+            selected_priorities = st.multiselect(
+                "Filter by Priority",
+                options=unique_priorities,
+                default=[]
+            )
+
+        # Apply filters
+        filtered_overview_df = overview_df
+
+        if selected_creators: # If list is not empty
+            filtered_overview_df = filtered_overview_df[filtered_overview_df['Creator'].isin(selected_creators)]
+        if selected_teams:
+            filtered_overview_df = filtered_overview_df[filtered_overview_df['Team'].isin(selected_teams)]
+        if selected_priorities:
+            filtered_overview_df = filtered_overview_df[filtered_overview_df['Priority'].isin(selected_priorities)]
+        
+        # NOTE: The line below this comment block, which displayed the count of filtered records,
+        # will be removed as per the subtask instructions.
+        # st.write(f"Displaying {len(filtered_overview_df)} records after filtering.") 
+        
+        st.markdown("---") # Add a visual separator
+
+        # --- Incident Volume by Creator ---
+        st.subheader("Incident Volume by Creator")
+        if not filtered_overview_df.empty:
+            # Ensure 'Creator' column exists
+            if 'Creator' in filtered_overview_df.columns:
+                creator_volume = filtered_overview_df['Creator'].value_counts().reset_index()
+                creator_volume.columns = ['Creator', 'Number of Incidents'] # Renaming for clarity
+                
+                if not creator_volume.empty:
+                    chart_data = creator_volume.set_index('Creator')
+                    st.bar_chart(chart_data)
+                else:
+                    st.info("No incident volume to display based on current 'Creator' column data or filters.")
+            else:
+                st.warning("Column 'Creator' not found in the data. Cannot display Incident Volume by Creator.")
+        else:
+            st.info("No data available to display for Incident Volume by Creator based on current filters.")
+
+        # --- Team Assignment Distribution ---
+        st.markdown("---") # Visual separator
+        st.subheader("Team Assignment Distribution")
+        if not filtered_overview_df.empty:
+            if 'Team' in filtered_overview_df.columns:
+                team_distribution_data = filtered_overview_df['Team'].value_counts()
+                
+                if not team_distribution_data.empty:
+                    fig_team_dist = px.pie(
+                        team_distribution_data,
+                        names=team_distribution_data.index,
+                        values=team_distribution_data.values,
+                        title="Distribution of Incidents by Team"
+                    )
+                    fig_team_dist.update_traces(textposition='inside', textinfo='percent+label')
+                    st.plotly_chart(fig_team_dist, use_container_width=True)
+                else:
+                    st.info("No team assignment data to display based on current filters.")
+            else:
+                st.warning("Cannot display Team Assignment Distribution: 'Team' column not found in the data.")
+        else:
+            st.info("No data available to display for Team Assignment Distribution based on current filters.")
+
+        # --- Priority Levels per Team (Stacked Bar Chart) ---
+        st.markdown("---")
+        st.subheader("Priority Levels per Team")
+        if not filtered_overview_df.empty:
+            if 'Team' in filtered_overview_df.columns and 'Priority' in filtered_overview_df.columns:
+                priority_per_team = filtered_overview_df.groupby(['Team', 'Priority']).size().reset_index(name='Count')
+                if not priority_per_team.empty:
+                    fig_stacked_bar = px.bar(
+                        priority_per_team, x='Team', y='Count', color='Priority',
+                        # title='Incident Priority Distribution by Team', # Optional, as subheader is present
+                        barmode='stack'
+                    )
+                    st.plotly_chart(fig_stacked_bar, use_container_width=True)
+                else:
+                    st.info("No data to display for priority levels per team based on current filters.")
+            else:
+                st.warning("Cannot display Priority Levels per Team: 'Team' or 'Priority' column missing.")
+        else:
+            st.info("No data available for Priority Levels per Team based on current filters.")
+
+        # --- Overall Priority Distribution (Pie Chart) ---
+        st.markdown("---")
+        st.subheader("Overall Priority Distribution")
+        if not filtered_overview_df.empty:
+            if 'Priority' in filtered_overview_df.columns:
+                total_priority_distribution = filtered_overview_df['Priority'].value_counts()
+                if not total_priority_distribution.empty:
+                    fig_total_priority_pie = px.pie(
+                        total_priority_distribution, names=total_priority_distribution.index,
+                        values=total_priority_distribution.values,
+                        # title='Overall Incident Priority Distribution' # Optional
+                    )
+                    fig_total_priority_pie.update_traces(textposition='inside', textinfo='percent+label')
+                    st.plotly_chart(fig_total_priority_pie, use_container_width=True)
+                else:
+                    st.info("No data to display for overall priority distribution based on current filters.")
+            else:
+                st.warning("Cannot display Overall Priority Distribution: 'Priority' column missing.")
+        else:
+            st.info("No data available for Overall Priority Distribution based on current filters.")
+
+        # --- High-Priority Incidents Table ---
+        st.markdown("---")
+        st.subheader("High-Priority Incidents (P1 & P2)")
+        if not filtered_overview_df.empty:
+            required_table_cols = ["Incident", "Creator", "Team", "Priority"]
+            missing_cols_for_table = [col for col in required_table_cols if col not in filtered_overview_df.columns]
+
+            if not missing_cols_for_table:
+                high_priority_values = ["P1", "P2"] # Define high-priority values
+                
+                high_priority_incidents_df = filtered_overview_df[
+                    filtered_overview_df['Priority'].astype(str).isin(high_priority_values)
+                ]
+                
+                if not high_priority_incidents_df.empty:
+                    st.dataframe(
+                        high_priority_incidents_df[required_table_cols], 
+                        use_container_width=True,
+                        hide_index=True 
+                    )
+                else:
+                    st.info("No high-priority incidents (P1 or P2) found based on current filters.")
+            else:
+                st.warning(f"Cannot display High-Priority Incidents table: Missing columns: {', '.join(missing_cols_for_table)}.")
+        else:
+            st.info("No data available to display for High-Priority Incidents based on current filters.")
+
+        # (Other charts and table will be added below this based on filtered_overview_df)
+
+        # Temporary: Display filtered data for verification (worker to comment out/remove)
+        # st.subheader("Filtered Data (Temporary)")
+        # st.dataframe(filtered_overview_df.head())
 
 st.markdown("---")
 st.markdown(
