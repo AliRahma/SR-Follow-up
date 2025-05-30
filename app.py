@@ -1177,31 +1177,6 @@ else:
                 filtered_overview_df = filtered_overview_df[filtered_overview_df['Priority'].isin(selected_priorities)]
             if selected_statuses and 'Status' in filtered_overview_df.columns: # Add status filter
                 filtered_overview_df = filtered_overview_df[filtered_overview_df['Status'].isin(selected_statuses)]
-        # --- New Filtered Incident Details Table ---
-        st.markdown("---") # Separator before the new table
-        st.subheader("Filtered Incident Details")
-
-        if not filtered_overview_df.empty:
-            table_columns = ["Incident", "Creator", "Team", "Priority", "Status"]
-            # Ensure all columns exist in filtered_overview_df before trying to display them
-            displayable_columns = [col for col in table_columns if col in filtered_overview_df.columns]
-
-            if not displayable_columns:
-                 st.warning("None of the specified columns for the 'Filtered Incident Details' table are available in the data.")
-            else:
-                # Check if essential columns are missing for the purpose of this table
-                essential_cols_missing = [col for col in ["Incident", "Status"] if col not in displayable_columns]
-                if essential_cols_missing:
-                    st.warning(f"Essential columns ({', '.join(essential_cols_missing)}) are missing for the 'Filtered Incident Details' table.")
-
-                st.write(f"Displaying {len(filtered_overview_df)} records in table.")
-                st.dataframe(
-                    filtered_overview_df[displayable_columns],
-                    use_container_width=True,
-                    hide_index=True
-                )
-        else:
-            st.info("No data to display in the 'Filtered Incident Details' table based on current filters.")
 
             # --- Pie Chart for Closed Incidents ---
             st.markdown("---") # Visual separator before the pie chart
@@ -1337,6 +1312,31 @@ else:
                 st.warning(f"Cannot display High-Priority Incidents table: Missing essential columns: {', '.join(missing_cols_for_high_priority_table)}.")
         else:
             st.info("No data available to display for High-Priority Incidents based on current filters.")
+        # --- New Filtered Incident Details Table ---
+        st.markdown("---") # Separator before the new table
+        st.subheader("Filtered Incident Details")
+
+        if not filtered_overview_df.empty:
+            table_columns = ["Incident", "Creator", "Team", "Priority", "Status"]
+            # Ensure all columns exist in filtered_overview_df before trying to display them
+            displayable_columns = [col for col in table_columns if col in filtered_overview_df.columns]
+
+            if not displayable_columns:
+                 st.warning("None of the specified columns for the 'Filtered Incident Details' table are available in the data.")
+            else:
+                # Check if essential columns are missing for the purpose of this table
+                essential_cols_missing = [col for col in ["Incident", "Status"] if col not in displayable_columns]
+                if essential_cols_missing:
+                    st.warning(f"Essential columns ({', '.join(essential_cols_missing)}) are missing for the 'Filtered Incident Details' table.")
+
+                st.write(f"Displaying {len(filtered_overview_df)} records in table.")
+                st.dataframe(
+                    filtered_overview_df[displayable_columns],
+                    use_container_width=True,
+                    hide_index=True
+                )
+        else:
+            st.info("No data to display in the 'Filtered Incident Details' table based on current filters.")
 
 st.markdown("---")
 st.markdown(
