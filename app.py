@@ -1218,7 +1218,8 @@ else:
             
             # --- Pie Chart for Closed Incidents ---
             st.markdown("---") # Visual separator before the pie chart
-            if 'Status' in overview_df.columns: # Ensure 'Status' column exists in the original overview_df                closed_count = overview_df[overview_df['Status'] == 'Closed'].shape[0]
+            if 'Status' in overview_df.columns: # Ensure 'Status' column exists in the original overview_df
+                closed_count = overview_df[overview_df['Status'] == 'Closed'].shape[0]
                 total_incidents = overview_df.shape[0]
                 other_count = total_incidents - closed_count
 
@@ -1234,6 +1235,7 @@ else:
             else:
                 st.warning("Cannot display Percentage of Closed Incidents: 'Status' column missing from source data.")
 
+            st.markdown("---") # Add a visual separator after the pie chart
         # --- Team Assignment Distribution ---
         st.markdown("---") # Visual separator
         st.subheader("Team Assignment Distribution")
