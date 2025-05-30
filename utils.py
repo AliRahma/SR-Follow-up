@@ -122,3 +122,80 @@ def time_to_resolve_after_breach(breach_date, resolution_date):
     hours, remainder = divmod(delta.seconds, 3600)
     minutes, _ = divmod(remainder, 60)
     return f"{days}d {hours}h {minutes}m"
+
+def calculate_team_status_summary(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates the summary of incidents grouped by Team and Status.
+
+    Args:
+        df: Input DataFrame, expected to have 'Team' and 'Status' columns.
+
+    Returns:
+        A DataFrame with columns ['Team', 'Status', 'Total Incidents']
+        summarizing the count of incidents. Returns an empty DataFrame
+        with these columns if 'Team' or 'Status' is missing in the input.
+    """
+    if 'Team' in df.columns and 'Status' in df.columns:
+        summary_df = df.groupby(['Team', 'Status']).size().reset_index(name='Total Incidents')
+    else:
+        summary_df = pd.DataFrame(columns=['Team', 'Status', 'Total Incidents'])
+    return summary_df
+
+def test_calculate_team_status_summary():
+    """Tests for the calculate_team_status_summary function."""
+    print("Running test_calculate_team_status_summary...")
+    # Test with valid data
+    sample_data = {
+        'Team': ['Alpha', 'Alpha', 'Bravo', 'Alpha', 'Bravo', 'Charlie'],
+        'Status': ['Open', 'Closed', 'Open', 'Open', 'In Progress', 'Open'],
+        'ID': [1, 2, 3, 4, 5, 6]
+    }
+    test_df = pd.DataFrame(sample_data)
+    summary = calculate_team_status_summary(test_df)
+
+    assert not summary.empty, "Test Case 1 Failed: Summary should not be empty for valid data."
+    assert summary.shape == (5, 3), f"Test Case 1 Failed: Expected shape (5, 3), got {summary.shape}"
+
+    # Check a specific row: Alpha, Open should be 2
+    alpha_open_count_series = summary[(summary['Team'] == 'Alpha') & (summary['Status'] == 'Open')]['Total Incidents']
+    assert not alpha_open_count_series.empty, "Test Case 1 Failed: 'Alpha' team with 'Open' status not found."
+    alpha_open_count = alpha_open_count_series.iloc[0]
+    assert alpha_open_count == 2, f"Test Case 1 Failed: Expected Alpha-Open count 2, got {alpha_open_count}"
+
+    # Check another specific row: Bravo, In Progress should be 1
+    bravo_in_progress_series = summary[(summary['Team'] == 'Bravo') & (summary['Status'] == 'In Progress')]['Total Incidents']
+    assert not bravo_in_progress_series.empty, "Test Case 1 Failed: 'Bravo' team with 'In Progress' status not found."
+    bravo_in_progress_count = bravo_in_progress_series.iloc[0]
+    assert bravo_in_progress_count == 1, f"Test Case 1 Failed: Expected Bravo-In Progress count 1, got {bravo_in_progress_count}"
+
+    print("Test Case 1 (Valid Data) Passed.")
+
+    # Test with missing columns
+    sample_data_missing_cols = {
+        'Group': ['A', 'B'],
+        'Value': [10, 20]
+    }
+    test_df_missing = pd.DataFrame(sample_data_missing_cols)
+    summary_missing = calculate_team_status_summary(test_df_missing)
+
+    assert summary_missing.empty, "Test Case 2 Failed: Summary should be empty when columns are missing."
+    expected_cols = ['Team', 'Status', 'Total Incidents']
+    assert list(summary_missing.columns) == expected_cols, \
+        f"Test Case 2 Failed: Expected columns {expected_cols}, got {list(summary_missing.columns)}"
+    print("Test Case 2 (Missing Columns) Passed.")
+
+    # Test with empty dataframe but correct columns
+    empty_df_with_cols = pd.DataFrame(columns=['Team', 'Status', 'ID'])
+    summary_empty_df = calculate_team_status_summary(empty_df_with_cols)
+    assert summary_empty_df.empty, "Test Case 3 Failed: Summary should be empty for an empty input DataFrame."
+    assert list(summary_empty_df.columns) == expected_cols, \
+        f"Test Case 3 Failed: Expected columns {expected_cols} for empty input, got {list(summary_empty_df.columns)}"
+    print("Test Case 3 (Empty DataFrame with Columns) Passed.")
+
+    print("All test_calculate_team_status_summary tests passed.")
+
+if __name__ == '__main__':
+    # This will run only the new tests.
+    # If other tests exist and need to be run, this block should be updated.
+    test_calculate_team_status_summary()
+    print("utils.py specific tests (calculate_team_status_summary) passed successfully when run directly.")
