@@ -1318,21 +1318,36 @@ else:
         st.subheader("Filtered Incident Details")
 
         if not filtered_overview_df.empty:
-            table_columns = ["Incident", "Creator", "Team", "Priority", "Status"]
-            # Ensure all columns exist in filtered_overview_df before trying to display them
-            displayable_columns = [col for col in table_columns if col in filtered_overview_df.columns]
+            # Define default columns for the table
+            default_table_columns = ["Incident", "Creator", "Team", "Priority", "Status"]
 
-            if not displayable_columns:
-                 st.warning("None of the specified columns for the 'Filtered Incident Details' table are available in the data.")
+            # Filter default columns to only include those present in the DataFrame
+            available_default_columns = [col for col in default_table_columns if col in filtered_overview_df.columns]
+
+            # Add column selector multiselect
+            if not filtered_overview_df.empty:
+                all_available_columns = filtered_overview_df.columns.tolist()
+                selected_table_columns = st.multiselect(
+                    "Select columns for table:",
+                    options=all_available_columns,
+                    default=available_default_columns
+                )
+            else: # Should not happen if filtered_overview_df is not empty, but as a fallback
+                selected_table_columns = []
+
+            if not selected_table_columns:
+                st.info("Please select at least one column to display the table.")
             else:
-                # Check if essential columns are missing for the purpose of this table
-                essential_cols_missing = [col for col in ["Incident", "Status"] if col not in displayable_columns]
-                if essential_cols_missing:
-                    st.warning(f"Essential columns ({', '.join(essential_cols_missing)}) are missing for the 'Filtered Incident Details' table.")
+                # Check if essential columns (even if not selected) are missing from the original data source for context
+                # This is more of a data integrity check than a display blocker if user deselects them.
+                essential_source_cols = ["Incident", "Status"] # Example essentials for the table's purpose
+                missing_essential_source_cols = [col for col in essential_source_cols if col not in filtered_overview_df.columns]
+                if missing_essential_source_cols:
+                    st.caption(f"Warning: Source data is missing essential columns for full detail: {', '.join(missing_essential_source_cols)}.")
 
-                st.write(f"Displaying {len(filtered_overview_df)} records in table.")
+                st.write(f"Displaying {len(filtered_overview_df)} records in table with selected columns.")
                 st.dataframe(
-                    filtered_overview_df[displayable_columns],
+                    filtered_overview_df[selected_table_columns], # Use user-selected columns
                     use_container_width=True,
                     hide_index=True
                 )
