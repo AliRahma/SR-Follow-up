@@ -1193,7 +1193,6 @@ else:
             else:
                 st.warning("Cannot display Percentage of Closed Incidents: 'Status' column missing from source data.")
 
-            st.markdown("---") # Add a visual separator after the pie chart
         # --- New Filtered Incident Details Table ---
         st.markdown("---") # Separator before the new table
         st.subheader("Filtered Incident Details")
