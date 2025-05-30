@@ -724,23 +724,42 @@ else:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
         
-        # Display data table with important columns
-        important_cols = ['Last Note', 'Case Id', 'Current User Id', 'Case Start Date', 'Triage Status', 'Type', 'Ticket Number']
-        
-        # Add Status columns if available
-        if 'Status' in df_display.columns:
-            important_cols.extend(['Status', 'Last Update'])
-            if 'Breach Passed' in df_display.columns:
-                important_cols.append('Breach Passed')
-        
-        # Ensure all columns exist
-        display_cols = [col for col in important_cols if col in df_display.columns]
-        
-        # Prepare dataframe for display
+        # Display data table with customizable columns
         if not df_display.empty:
-            # Display with st.dataframe
-            st.dataframe(df_display[display_cols], hide_index=True)
-        
+            all_columns = df_display.columns.tolist()
+
+            default_selected_cols = ['Last Note', 'Case Id', 'Current User Id', 'Case Start Date', 'Triage Status', 'Type', 'Ticket Number']
+            if 'Status' in df_display.columns:
+                default_selected_cols.extend(['Status', 'Last Update'])
+            if 'Breach Passed' in df_display.columns:
+                default_selected_cols.append('Breach Passed')
+
+            # Ensure default columns are valid and exist in df_display
+            default_selected_cols = [col for col in default_selected_cols if col in all_columns]
+
+            selected_display_cols = st.multiselect(
+                "Select columns to display:",
+                options=all_columns,
+                default=default_selected_cols
+            )
+
+            if not selected_display_cols:
+                columns_to_show = all_columns # Show all columns if none are selected
+            else:
+                columns_to_show = selected_display_cols
+
+            if columns_to_show: # Ensure there are columns to show
+                st.dataframe(df_display[columns_to_show], hide_index=True)
+            else: # This case should ideally be covered by the logic above, but as a fallback
+                st.info("Please select at least one column to display, or all columns will be shown if the selection is empty and columns are available.")
+
+        elif df_display.empty: # This elif should be at the same level as the first if not df_display.empty
+            st.info("No data to display based on current filters.")
+        # If df_display is not empty but columns_to_show ended up empty (e.g. if all_columns was also empty initially)
+        # This case is unlikely if df_display was not empty, but good to be robust.
+        else:
+            st.info("No columns available to display.")
+
         # Note viewer
         st.subheader("📝 Note Details")
         
