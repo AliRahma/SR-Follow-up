@@ -1215,6 +1215,7 @@ else:
                 )
         else:
             st.info("No data to display in the 'Filtered Incident Details' table based on current filters.")
+            
             # --- Pie Chart for Closed Incidents ---
             st.markdown("---") # Visual separator before the pie chart
             if 'Status' in overview_df.columns: # Ensure 'Status' column exists in the original overview_df
@@ -1233,8 +1234,6 @@ else:
                     st.info("No incident data available to display the status pie chart.")
             else:
                 st.warning("Cannot display Percentage of Closed Incidents: 'Status' column missing from source data.")
-
-            st.markdown("---") # Add a visual separator after the pie chart
 
         # --- Team Assignment Distribution ---
         st.markdown("---") # Visual separator
