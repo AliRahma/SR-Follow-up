@@ -1075,8 +1075,8 @@ else:
             else:
                 st.info("No cases found with notes created today.")
 
-elif selected == "Incident Overview":
-    st.title("📋 Incident Overview")
+    elif selected == "Incident Overview":
+        st.title("📋 Incident Overview")
 
     if 'incident_overview_df' not in st.session_state or st.session_state.incident_overview_df is None or st.session_state.incident_overview_df.empty:
         st.warning(
