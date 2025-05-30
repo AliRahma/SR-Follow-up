@@ -272,24 +272,21 @@ with st.sidebar:
                 st.success(f"Incident report data loaded: {incident_df.shape[0]} records")
 
                 # Process for Incident Overview tab
-                # Ensure "Status" is included for the new features
-                required_cols = ["Customer", "Incident", "Team", "Priority", "Status"]
-                missing_cols = [col for col in required_cols if col not in incident_df.columns]
+                # Copy all columns from incident_df
+                overview_df = incident_df.copy()
 
-                if not missing_cols:
-                    # Select and rename columns for the overview tab
-                    overview_df = incident_df[required_cols].copy()
-                    # Rename "Customer" to "Creator"
-                    if "Customer" in overview_df.columns:
-                        overview_df.rename(columns={"Customer": "Creator"}, inplace=True)
-                    st.session_state.incident_overview_df = overview_df
-                    st.success(f"Incident Overview data prepared: {len(overview_df)} records.")
-                else:
-                    st.session_state.incident_overview_df = None
-                    st.error(
-                        f"Incident Report Excel is missing required columns for Overview: {', '.join(missing_cols)}. "
-                        "Please upload a file with all these columns: Customer, Incident, Team, Priority, Status."
-                    )
+                # Rename "Customer" to "Creator" if "Customer" column exists
+                if "Customer" in overview_df.columns:
+                    overview_df.rename(columns={"Customer": "Creator"}, inplace=True)
+
+                # Store the full overview_df in session state
+                st.session_state.incident_overview_df = overview_df
+                st.success(f"Incident Overview data loaded: {len(overview_df)} records, {len(overview_df.columns)} columns.")
+
+                # Note: The old logic for 'required_cols' and 'missing_cols' check at this stage is removed.
+                # Specific column checks will be handled within the "Incident Overview" tab itself
+                # for UI elements that depend on them (e.g., filters, default table views).
+
             else:
                 st.session_state.incident_overview_df = None # Ensure it's None if file loading failed
     
