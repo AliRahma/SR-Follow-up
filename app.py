@@ -1097,52 +1097,52 @@ else:
     elif selected == "Incident Overview":
         st.title("📋 Incident Overview")
 
-    if 'incident_overview_df' not in st.session_state or st.session_state.incident_overview_df is None or st.session_state.incident_overview_df.empty:
-        st.warning(
-            "The 'Incident Report Excel' has not been uploaded or is missing the required columns "
-            "('Customer', 'Incident', 'Team', 'Priority'). "
-            "Please upload the correct file via the sidebar to view the Incident Overview."
-        )
-    else:
-        overview_df = st.session_state.incident_overview_df.copy() # Work with a copy
-
-        st.subheader("Filter Incidents")
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            unique_creators = sorted(overview_df['Creator'].dropna().unique())
-            selected_creators = st.multiselect(
-                "Filter by Creator",
-                options=unique_creators,
-                default=[] 
+        if 'incident_overview_df' not in st.session_state or st.session_state.incident_overview_df is None or st.session_state.incident_overview_df.empty:
+            st.warning(
+                "The 'Incident Report Excel' has not been uploaded or is missing the required columns "
+                "('Customer', 'Incident', 'Team', 'Priority'). "
+                "Please upload the correct file via the sidebar to view the Incident Overview."
             )
+        else:
+            overview_df = st.session_state.incident_overview_df.copy() # Work with a copy
 
-        with col2:
-            unique_teams = sorted(overview_df['Team'].dropna().unique())
-            selected_teams = st.multiselect(
-                "Filter by Team",
-                options=unique_teams,
-                default=[]
-            )
+            st.subheader("Filter Incidents")
+            col1, col2, col3 = st.columns(3)
 
-        with col3:
-            unique_priorities = sorted(overview_df['Priority'].dropna().unique())
-            selected_priorities = st.multiselect(
-                "Filter by Priority",
-                options=unique_priorities,
-                default=[]
-            )
+            with col1:
+                unique_creators = sorted(overview_df['Creator'].dropna().unique())
+                selected_creators = st.multiselect(
+                    "Filter by Creator",
+                    options=unique_creators,
+                    default=[] 
+                )
 
-        # Apply filters
-        filtered_overview_df = overview_df
+            with col2:
+                unique_teams = sorted(overview_df['Team'].dropna().unique())
+                selected_teams = st.multiselect(
+                    "Filter by Team",
+                    options=unique_teams,
+                    default=[]
+                )
 
-        if selected_creators: # If list is not empty
-            filtered_overview_df = filtered_overview_df[filtered_overview_df['Creator'].isin(selected_creators)]
-        if selected_teams:
-            filtered_overview_df = filtered_overview_df[filtered_overview_df['Team'].isin(selected_teams)]
-        if selected_priorities:
-            filtered_overview_df = filtered_overview_df[filtered_overview_df['Priority'].isin(selected_priorities)]
-        
+            with col3:
+                unique_priorities = sorted(overview_df['Priority'].dropna().unique())
+                selected_priorities = st.multiselect(
+                    "Filter by Priority",
+                    options=unique_priorities,
+                    default=[]
+                )
+
+            # Apply filters
+            filtered_overview_df = overview_df
+
+            if selected_creators: # If list is not empty
+                filtered_overview_df = filtered_overview_df[filtered_overview_df['Creator'].isin(selected_creators)]
+            if selected_teams:
+                filtered_overview_df = filtered_overview_df[filtered_overview_df['Team'].isin(selected_teams)]
+            if selected_priorities:
+                filtered_overview_df = filtered_overview_df[filtered_overview_df['Priority'].isin(selected_priorities)]
+            
         # NOTE: The line below this comment block, which displayed the count of filtered records,
         # will be removed as per the subtask instructions.
         # st.write(f"Displaying {len(filtered_overview_df)} records after filtering.") 
