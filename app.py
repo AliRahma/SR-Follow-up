@@ -1485,6 +1485,28 @@ else:
                     st.info("No incident data available to display the status pie chart.")
             else:
                 st.warning("Cannot display Percentage of Closed Incidents: 'Status' column missing from source data.")
+        # --- Team Assignment Distribution ---
+        st.markdown("---") # Visual separator
+        st.subheader("Team Assignment Distribution")
+        if not filtered_overview_df.empty:
+            if 'Team' in filtered_overview_df.columns:
+                team_distribution_data = filtered_overview_df['Team'].value_counts()
+                
+                if not team_distribution_data.empty:
+                    fig_team_dist = px.pie(
+                        team_distribution_data,
+                        names=team_distribution_data.index,
+                        values=team_distribution_data.values,
+                        title="Distribution of Incidents by Team"
+                    )
+                    fig_team_dist.update_traces(textposition='inside', textinfo='percent+label')
+                    st.plotly_chart(fig_team_dist, use_container_width=True)
+                else:
+                    st.info("No team assignment data to display based on current filters.")
+            else:
+                st.warning("Cannot display Team Assignment Distribution: 'Team' column not found in the data.")
+        else:
+            st.info("No data available to display for Team Assignment Distribution based on current filters.")
 
         # --- New Filtered Incident Details Table ---
         st.markdown("---") # Separator before the new table
@@ -1580,29 +1602,6 @@ else:
         else:
             st.info("No data to display in the 'Filtered Incident Details' table based on current filters.")
         
-        # --- Team Assignment Distribution ---
-        st.markdown("---") # Visual separator
-        st.subheader("Team Assignment Distribution")
-        if not filtered_overview_df.empty:
-            if 'Team' in filtered_overview_df.columns:
-                team_distribution_data = filtered_overview_df['Team'].value_counts()
-                
-                if not team_distribution_data.empty:
-                    fig_team_dist = px.pie(
-                        team_distribution_data,
-                        names=team_distribution_data.index,
-                        values=team_distribution_data.values,
-                        title="Distribution of Incidents by Team"
-                    )
-                    fig_team_dist.update_traces(textposition='inside', textinfo='percent+label')
-                    st.plotly_chart(fig_team_dist, use_container_width=True)
-                else:
-                    st.info("No team assignment data to display based on current filters.")
-            else:
-                st.warning("Cannot display Team Assignment Distribution: 'Team' column not found in the data.")
-        else:
-            st.info("No data available to display for Team Assignment Distribution based on current filters.")
-
         # --- Incidents by Team and Status Table ---
         st.markdown("---") # Visual separator
         st.subheader("Incidents by Team and Status")
