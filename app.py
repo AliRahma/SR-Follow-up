@@ -1174,6 +1174,7 @@ else:
                 filtered_overview_df = filtered_overview_df[filtered_overview_df['Priority'].isin(selected_priorities)]
             if selected_statuses and 'Status' in filtered_overview_df.columns: # Add status filter
                 filtered_overview_df = filtered_overview_df[filtered_overview_df['Status'].isin(selected_statuses)]
+        
         # --- New Filtered Incident Details Table ---
         st.markdown("---") # Separator before the new table
         st.subheader("Filtered Incident Details")
@@ -1236,24 +1237,6 @@ else:
 
             st.markdown("---") # Add a visual separator after the pie chart
 
-            # --- Incident Volume by Creator ---
-        st.subheader("Incident Volume by Creator")
-        if not filtered_overview_df.empty:
-            # Ensure 'Creator' column exists
-            if 'Creator' in filtered_overview_df.columns:
-                creator_volume = filtered_overview_df['Creator'].value_counts().reset_index()
-                creator_volume.columns = ['Creator', 'Number of Incidents'] # Renaming for clarity
-                
-                if not creator_volume.empty:
-                    chart_data = creator_volume.set_index('Creator')
-                    st.bar_chart(chart_data)
-                else:
-                    st.info("No incident volume to display based on current 'Creator' column data or filters.")
-            else:
-                st.warning("Column 'Creator' not found in the data. Cannot display Incident Volume by Creator.")
-        else:
-            st.info("No data available to display for Incident Volume by Creator based on current filters.")
-
         # --- Team Assignment Distribution ---
         st.markdown("---") # Visual separator
         st.subheader("Team Assignment Distribution")
@@ -1276,48 +1259,7 @@ else:
                 st.warning("Cannot display Team Assignment Distribution: 'Team' column not found in the data.")
         else:
             st.info("No data available to display for Team Assignment Distribution based on current filters.")
-
-        # --- Priority Levels per Team (Stacked Bar Chart) ---
-        st.markdown("---")
-        st.subheader("Priority Levels per Team")
-        if not filtered_overview_df.empty:
-            if 'Team' in filtered_overview_df.columns and 'Priority' in filtered_overview_df.columns:
-                priority_per_team = filtered_overview_df.groupby(['Team', 'Priority']).size().reset_index(name='Count')
-                if not priority_per_team.empty:
-                    fig_stacked_bar = px.bar(
-                        priority_per_team, x='Team', y='Count', color='Priority',
-                        # title='Incident Priority Distribution by Team', # Optional, as subheader is present
-                        barmode='stack'
-                    )
-                    st.plotly_chart(fig_stacked_bar, use_container_width=True)
-                else:
-                    st.info("No data to display for priority levels per team based on current filters.")
-            else:
-                st.warning("Cannot display Priority Levels per Team: 'Team' or 'Priority' column missing.")
-        else:
-            st.info("No data available for Priority Levels per Team based on current filters.")
-
-        # --- Overall Priority Distribution (Pie Chart) ---
-        st.markdown("---")
-        st.subheader("Overall Priority Distribution")
-        if not filtered_overview_df.empty:
-            if 'Priority' in filtered_overview_df.columns:
-                total_priority_distribution = filtered_overview_df['Priority'].value_counts()
-                if not total_priority_distribution.empty:
-                    fig_total_priority_pie = px.pie(
-                        total_priority_distribution, names=total_priority_distribution.index,
-                        values=total_priority_distribution.values,
-                        # title='Overall Incident Priority Distribution' # Optional
-                    )
-                    fig_total_priority_pie.update_traces(textposition='inside', textinfo='percent+label')
-                    st.plotly_chart(fig_total_priority_pie, use_container_width=True)
-                else:
-                    st.info("No data to display for overall priority distribution based on current filters.")
-            else:
-                st.warning("Cannot display Overall Priority Distribution: 'Priority' column missing.")
-        else:
-            st.info("No data available for Overall Priority Distribution based on current filters.")
-
+            
         # --- High-Priority Incidents Table (remains, now affected by Status filter too) ---
         st.markdown("---")
         st.subheader("High-Priority Incidents (P1 & P2)")
