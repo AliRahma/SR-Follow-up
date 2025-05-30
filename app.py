@@ -1239,7 +1239,7 @@ else:
             missing_cols_for_table = [col for col in required_table_cols if col not in filtered_overview_df.columns]
 
             if not missing_cols_for_table:
-                high_priority_values = ["P1", "P2"] # Define high-priority values
+                high_priority_values = ["1", "2"] # Define high-priority values
                 
                 high_priority_incidents_df = filtered_overview_df[
                     filtered_overview_df['Priority'].astype(str).isin(high_priority_values)
