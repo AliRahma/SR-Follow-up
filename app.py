@@ -1507,7 +1507,19 @@ else:
                 st.warning("Cannot display Team Assignment Distribution: 'Team' column not found in the data.")
         else:
             st.info("No data available to display for Team Assignment Distribution based on current filters.")
-
+        # --- Incidents by Team and Status Table ---
+        st.markdown("---") # Visual separator
+        st.subheader("Incidents by Team and Status")
+        # Check if 'Team' or 'Status' column was missing when team_status_summary_df was created.
+        # This check is based on the columns available in filtered_overview_df, which was used to create team_status_summary_df.
+        if 'Team' not in filtered_overview_df.columns or 'Status' not in filtered_overview_df.columns:
+            st.warning("The 'Team' or 'Status' column is missing in the uploaded incident data, so the 'Incidents by Team and Status' table cannot be generated.")
+        elif not team_status_summary_df.empty:
+            st.dataframe(team_status_summary_df, use_container_width=True, hide_index=True)
+        else:
+            # This case means columns existed, but the dataframe is empty (e.g., due to filters or no matching data)
+            st.info("No incident data to display in the 'Incidents by Team and Status' table based on current filters or data availability.")
+         
         # --- New Filtered Incident Details Table ---
         st.markdown("---") # Separator before the new table
         st.subheader("Filtered Incident Details")
@@ -1601,20 +1613,7 @@ else:
 
         else:
             st.info("No data to display in the 'Filtered Incident Details' table based on current filters.")
-        
-        # --- Incidents by Team and Status Table ---
-        st.markdown("---") # Visual separator
-        st.subheader("Incidents by Team and Status")
-        # Check if 'Team' or 'Status' column was missing when team_status_summary_df was created.
-        # This check is based on the columns available in filtered_overview_df, which was used to create team_status_summary_df.
-        if 'Team' not in filtered_overview_df.columns or 'Status' not in filtered_overview_df.columns:
-            st.warning("The 'Team' or 'Status' column is missing in the uploaded incident data, so the 'Incidents by Team and Status' table cannot be generated.")
-        elif not team_status_summary_df.empty:
-            st.dataframe(team_status_summary_df, use_container_width=True, hide_index=True)
-        else:
-            # This case means columns existed, but the dataframe is empty (e.g., due to filters or no matching data)
-            st.info("No incident data to display in the 'Incidents by Team and Status' table based on current filters or data availability.")
-            
+   
         # --- High-Priority Incidents Table (remains, now affected by Status filter too) ---
         st.markdown("---")
         st.subheader("High-Priority Incidents (P1 & P2)")
