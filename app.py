@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import pytz
 from streamlit_option_menu import option_menu
 import plotly.express as px
+from utils import calculate_team_status_summary
 
 # Set page configuration
 st.set_page_config(
@@ -1449,6 +1450,10 @@ else:
                 filtered_overview_df = filtered_overview_df[filtered_overview_df['Priority'].isin(st.session_state.selected_priorities)]
             if st.session_state.get('selected_statuses') and 'Status' in filtered_overview_df.columns: # Add status filter
                 filtered_overview_df = filtered_overview_df[filtered_overview_df['Status'].isin(st.session_state.selected_statuses)]
+
+            # Calculate team and status totals
+            team_status_summary_df = calculate_team_status_summary(filtered_overview_df)
+
                     # --- Pie Chart for Closed Incidents ---
             st.markdown("---") # Visual separator before the pie chart
             if 'Status' in overview_df.columns: # Ensure 'Status' column exists in the original overview_df
@@ -1582,6 +1587,19 @@ else:
                 st.warning("Cannot display Team Assignment Distribution: 'Team' column not found in the data.")
         else:
             st.info("No data available to display for Team Assignment Distribution based on current filters.")
+
+        # --- Incidents by Team and Status Table ---
+        st.markdown("---") # Visual separator
+        st.subheader("Incidents by Team and Status")
+        # Check if 'Team' or 'Status' column was missing when team_status_summary_df was created.
+        # This check is based on the columns available in filtered_overview_df, which was used to create team_status_summary_df.
+        if 'Team' not in filtered_overview_df.columns or 'Status' not in filtered_overview_df.columns:
+            st.warning("The 'Team' or 'Status' column is missing in the uploaded incident data, so the 'Incidents by Team and Status' table cannot be generated.")
+        elif not team_status_summary_df.empty:
+            st.dataframe(team_status_summary_df, use_container_width=True, hide_index=True)
+        else:
+            # This case means columns existed, but the dataframe is empty (e.g., due to filters or no matching data)
+            st.info("No incident data to display in the 'Incidents by Team and Status' table based on current filters or data availability.")
             
         # --- High-Priority Incidents Table (remains, now affected by Status filter too) ---
         st.markdown("---")
