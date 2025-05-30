@@ -1394,7 +1394,7 @@ else:
                 if 'Status' in overview_df.columns:
                     unique_statuses = sorted(overview_df['Status'].dropna().unique())
                     # Exclude 'Closed', 'Resolved', 'Cancelled' by default
-                    closed_like_statuses = {'Closed', 'Resolved', 'Cancelled'}
+                    closed_like_statuses = {'Closed', 'Cancelled'}
                     default_selected_statuses = [s for s in unique_statuses if s not in closed_like_statuses]
                 else:
                     unique_statuses = []
