@@ -272,18 +272,24 @@ with st.sidebar:
                 st.success(f"Incident report data loaded: {incident_df.shape[0]} records")
 
                 # Process for Incident Overview tab
-                required_cols = ["Customer", "Incident", "Team", "Priority"]
+                # Ensure "Status" is included for the new features
+                required_cols = ["Customer", "Incident", "Team", "Priority", "Status"]
                 missing_cols = [col for col in required_cols if col not in incident_df.columns]
 
                 if not missing_cols:
                     # Select and rename columns for the overview tab
                     overview_df = incident_df[required_cols].copy()
-                    overview_df.rename(columns={"Customer": "Creator"}, inplace=True)
+                    # Rename "Customer" to "Creator"
+                    if "Customer" in overview_df.columns:
+                        overview_df.rename(columns={"Customer": "Creator"}, inplace=True)
                     st.session_state.incident_overview_df = overview_df
-                    st.success(f"Incident Overview data loaded successfully: {len(overview_df)} records.")
+                    st.success(f"Incident Overview data prepared: {len(overview_df)} records.")
                 else:
                     st.session_state.incident_overview_df = None
-                    st.error(f"Incident Report Excel is missing required columns for Overview: {', '.join(missing_cols)}. Please upload a file with these columns.")
+                    st.error(
+                        f"Incident Report Excel is missing required columns for Overview: {', '.join(missing_cols)}. "
+                        "Please upload a file with all these columns: Customer, Incident, Team, Priority, Status."
+                    )
             else:
                 st.session_state.incident_overview_df = None # Ensure it's None if file loading failed
     
@@ -1100,25 +1106,33 @@ else:
         if 'incident_overview_df' not in st.session_state or st.session_state.incident_overview_df is None or st.session_state.incident_overview_df.empty:
             st.warning(
                 "The 'Incident Report Excel' has not been uploaded or is missing the required columns "
-                "('Customer', 'Incident', 'Team', 'Priority'). "
+                "('Customer', 'Incident', 'Team', 'Priority', 'Status'). " # Updated message
                 "Please upload the correct file via the sidebar to view the Incident Overview."
             )
         else:
             overview_df = st.session_state.incident_overview_df.copy() # Work with a copy
 
             st.subheader("Filter Incidents")
-            col1, col2, col3 = st.columns(3)
+            # Create 4 columns for filters to include Status
+            col1, col2, col3, col4 = st.columns(4)
 
             with col1:
-                unique_creators = sorted(overview_df['Creator'].dropna().unique())
+                # Ensure 'Creator' column exists before trying to access it
+                if 'Creator' in overview_df.columns:
+                    unique_creators = sorted(overview_df['Creator'].dropna().unique())
+                else:
+                    unique_creators = [] # Default to empty list if column is missing
                 selected_creators = st.multiselect(
                     "Filter by Creator",
                     options=unique_creators,
-                    default=[] 
+                    default=[]
                 )
 
             with col2:
-                unique_teams = sorted(overview_df['Team'].dropna().unique())
+                if 'Team' in overview_df.columns:
+                    unique_teams = sorted(overview_df['Team'].dropna().unique())
+                else:
+                    unique_teams = []
                 selected_teams = st.multiselect(
                     "Filter by Team",
                     options=unique_teams,
@@ -1126,30 +1140,66 @@ else:
                 )
 
             with col3:
-                unique_priorities = sorted(overview_df['Priority'].dropna().unique())
+                if 'Priority' in overview_df.columns:
+                    unique_priorities = sorted(overview_df['Priority'].dropna().unique())
+                else:
+                    unique_priorities = []
                 selected_priorities = st.multiselect(
                     "Filter by Priority",
                     options=unique_priorities,
                     default=[]
                 )
 
+            with col4: # New column for Status filter
+                if 'Status' in overview_df.columns:
+                    unique_statuses = sorted(overview_df['Status'].dropna().unique())
+                    # Exclude 'Closed', 'Resolved', 'Cancelled' by default
+                    closed_like_statuses = {'Closed', 'Resolved', 'Cancelled'}
+                    default_selected_statuses = [s for s in unique_statuses if s not in closed_like_statuses]
+                else:
+                    unique_statuses = []
+                    default_selected_statuses = []
+
+                selected_statuses = st.multiselect(
+                    "Filter by Status",
+                    options=unique_statuses,
+                    default=default_selected_statuses
+                )
+
             # Apply filters
             filtered_overview_df = overview_df
 
-            if selected_creators: # If list is not empty
+            if selected_creators and 'Creator' in filtered_overview_df.columns:
                 filtered_overview_df = filtered_overview_df[filtered_overview_df['Creator'].isin(selected_creators)]
-            if selected_teams:
+            if selected_teams and 'Team' in filtered_overview_df.columns:
                 filtered_overview_df = filtered_overview_df[filtered_overview_df['Team'].isin(selected_teams)]
-            if selected_priorities:
+            if selected_priorities and 'Priority' in filtered_overview_df.columns:
                 filtered_overview_df = filtered_overview_df[filtered_overview_df['Priority'].isin(selected_priorities)]
+            if selected_statuses and 'Status' in filtered_overview_df.columns: # Add status filter
+                filtered_overview_df = filtered_overview_df[filtered_overview_df['Status'].isin(selected_statuses)]
             
-        # NOTE: The line below this comment block, which displayed the count of filtered records,
-        # will be removed as per the subtask instructions.
-        # st.write(f"Displaying {len(filtered_overview_df)} records after filtering.") 
-        
-        st.markdown("---") # Add a visual separator
+            # --- Pie Chart for Closed Incidents ---
+            st.markdown("---") # Visual separator before the pie chart
+            if 'Status' in overview_df.columns: # Ensure 'Status' column exists in the original overview_df
+                closed_count = overview_df[overview_df['Status'] == 'Closed'].shape[0]
+                total_incidents = overview_df.shape[0]
+                other_count = total_incidents - closed_count
 
-        # --- Incident Volume by Creator ---
+                if total_incidents > 0: # Avoid division by zero if no incidents
+                    chart_data = pd.DataFrame({
+                        'Status Category': ['Closed', 'Open/Other'],
+                        'Count': [closed_count, other_count]
+                    })
+                    fig_status_pie = px.pie(chart_data, names='Status Category', values='Count', title='Percentage of Closed Incidents')
+                    st.plotly_chart(fig_status_pie, use_container_width=True)
+                else:
+                    st.info("No incident data available to display the status pie chart.")
+            else:
+                st.warning("Cannot display Percentage of Closed Incidents: 'Status' column missing from source data.")
+
+            st.markdown("---") # Add a visual separator after the pie chart
+
+            # --- Incident Volume by Creator ---
         st.subheader("Incident Volume by Creator")
         if not filtered_overview_df.empty:
             # Ensure 'Creator' column exists
@@ -1231,15 +1281,20 @@ else:
         else:
             st.info("No data available for Overall Priority Distribution based on current filters.")
 
-        # --- High-Priority Incidents Table ---
+        # --- High-Priority Incidents Table (remains, now affected by Status filter too) ---
         st.markdown("---")
         st.subheader("High-Priority Incidents (P1 & P2)")
         if not filtered_overview_df.empty:
-            required_table_cols = ["Incident", "Creator", "Team", "Priority"]
-            missing_cols_for_table = [col for col in required_table_cols if col not in filtered_overview_df.columns]
+            # Include "Status" in this table as well, if available
+            high_priority_table_cols = ["Incident", "Creator", "Team", "Priority"]
+            if 'Status' in filtered_overview_df.columns:
+                high_priority_table_cols.append("Status")
 
-            if not missing_cols_for_table:
-                high_priority_values = ["1", "2"] # Define high-priority values
+            # Check if all *intended* columns for this table are present
+            missing_cols_for_high_priority_table = [col for col in ["Incident", "Creator", "Team", "Priority"] if col not in filtered_overview_df.columns]
+
+            if not missing_cols_for_high_priority_table:
+                high_priority_values = ["1", "2"]
                 
                 high_priority_incidents_df = filtered_overview_df[
                     filtered_overview_df['Priority'].astype(str).isin(high_priority_values)
@@ -1247,22 +1302,43 @@ else:
                 
                 if not high_priority_incidents_df.empty:
                     st.dataframe(
-                        high_priority_incidents_df[required_table_cols], 
+                        high_priority_incidents_df[[col for col in high_priority_table_cols if col in high_priority_incidents_df.columns]], # Display only available columns
                         use_container_width=True,
                         hide_index=True 
                     )
                 else:
                     st.info("No high-priority incidents (P1 or P2) found based on current filters.")
             else:
-                st.warning(f"Cannot display High-Priority Incidents table: Missing columns: {', '.join(missing_cols_for_table)}.")
+                st.warning(f"Cannot display High-Priority Incidents table: Missing essential columns: {', '.join(missing_cols_for_high_priority_table)}.")
         else:
             st.info("No data available to display for High-Priority Incidents based on current filters.")
 
-        # (Other charts and table will be added below this based on filtered_overview_df)
+        # --- New Filtered Incident Details Table ---
+        st.markdown("---") # Separator before the new table
+        st.subheader("Filtered Incident Details")
 
-        # Temporary: Display filtered data for verification (worker to comment out/remove)
-        # st.subheader("Filtered Data (Temporary)")
-        # st.dataframe(filtered_overview_df.head())
+        if not filtered_overview_df.empty:
+            table_columns = ["Incident", "Creator", "Team", "Priority", "Status"]
+            # Ensure all columns exist in filtered_overview_df before trying to display them
+            displayable_columns = [col for col in table_columns if col in filtered_overview_df.columns]
+
+            if not displayable_columns:
+                 st.warning("None of the specified columns for the 'Filtered Incident Details' table are available in the data.")
+            else:
+                # Check if essential columns are missing for the purpose of this table
+                essential_cols_missing = [col for col in ["Incident", "Status"] if col not in displayable_columns]
+                if essential_cols_missing:
+                    st.warning(f"Essential columns ({', '.join(essential_cols_missing)}) are missing for the 'Filtered Incident Details' table.")
+
+                st.write(f"Displaying {len(filtered_overview_df)} records in table.")
+                st.dataframe(
+                    filtered_overview_df[displayable_columns],
+                    use_container_width=True,
+                    hide_index=True
+                )
+        else:
+            st.info("No data to display in the 'Filtered Incident Details' table based on current filters.")
+
 
 st.markdown("---")
 st.markdown(
