@@ -1174,26 +1174,7 @@ else:
                 filtered_overview_df = filtered_overview_df[filtered_overview_df['Priority'].isin(selected_priorities)]
             if selected_statuses and 'Status' in filtered_overview_df.columns: # Add status filter
                 filtered_overview_df = filtered_overview_df[filtered_overview_df['Status'].isin(selected_statuses)]
-                    # --- Pie Chart for Closed Incidents ---
-            st.markdown("---") # Visual separator before the pie chart
-            if 'Status' in overview_df.columns: # Ensure 'Status' column exists in the original overview_df
-                closed_count = overview_df[overview_df['Status'] == 'Closed'].shape[0]
-                total_incidents = overview_df.shape[0]
-                other_count = total_incidents - closed_count
-
-                if total_incidents > 0: # Avoid division by zero if no incidents
-                    chart_data = pd.DataFrame({
-                        'Status Category': ['Closed', 'Open/Other'],
-                        'Count': [closed_count, other_count]
-                    })
-                    fig_status_pie = px.pie(chart_data, names='Status Category', values='Count', title='Percentage of Closed Incidents')
-                    st.plotly_chart(fig_status_pie, use_container_width=True)
-                else:
-                    st.info("No incident data available to display the status pie chart.")
-            else:
-                st.warning("Cannot display Percentage of Closed Incidents: 'Status' column missing from source data.")
-
-            st.markdown("---") # Add a visual separator after the pie chart
+        
         # --- New Filtered Incident Details Table ---
         st.markdown("---") # Separator before the new table
         st.subheader("Filtered Incident Details")
@@ -1234,6 +1215,24 @@ else:
                 )
         else:
             st.info("No data to display in the 'Filtered Incident Details' table based on current filters.")
+                    # --- Pie Chart for Closed Incidents ---
+            st.markdown("---") # Visual separator before the pie chart
+            if 'Status' in overview_df.columns: # Ensure 'Status' column exists in the original overview_df
+                closed_count = overview_df[overview_df['Status'] == 'Closed'].shape[0]
+                total_incidents = overview_df.shape[0]
+                other_count = total_incidents - closed_count
+
+                if total_incidents > 0: # Avoid division by zero if no incidents
+                    chart_data = pd.DataFrame({
+                        'Status Category': ['Closed', 'Open/Other'],
+                        'Count': [closed_count, other_count]
+                    })
+                    fig_status_pie = px.pie(chart_data, names='Status Category', values='Count', title='Percentage of Closed Incidents')
+                    st.plotly_chart(fig_status_pie, use_container_width=True)
+                else:
+                    st.info("No incident data available to display the status pie chart.")
+            else:
+                st.warning("Cannot display Percentage of Closed Incidents: 'Status' column missing from source data.")
 
         # --- Team Assignment Distribution ---
         st.markdown("---") # Visual separator
