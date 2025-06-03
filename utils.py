@@ -141,6 +141,79 @@ def calculate_team_status_summary(df: pd.DataFrame) -> pd.DataFrame:
         summary_df = pd.DataFrame(columns=['Team', 'Status', 'Total Incidents'])
     return summary_df
 
+def test_case_count_calculation_and_filtering():
+    """Tests for Case Count calculation and linked cases filtering logic."""
+    print("Running test_case_count_calculation_and_filtering...")
+
+    # 1. Test Case Count Calculation
+    print("  Testing Case Count Calculation...")
+    case_count_data = {
+        'Ticket Number': ['INC100', 'SR200', 'INC100', 'SR300', 'INC100', 'SR200'],
+        'Type': ['Incident', 'SR', 'Incident', 'SR', 'Incident', 'SR'],
+        'OtherData': [1, 2, 3, 4, 5, 6]
+    }
+    df_case_count_test = pd.DataFrame(case_count_data)
+    df_case_count_test['Case Count'] = df_case_count_test.groupby(['Ticket Number', 'Type'])['Ticket Number'].transform('size')
+
+    expected_case_counts = pd.Series([3, 2, 3, 1, 3, 2], name='Case Count')
+    pd.testing.assert_series_equal(df_case_count_test['Case Count'], expected_case_counts, check_dtype=False)
+    print("  Case Count Calculation Test Passed.")
+
+    # 2. Test Filtering Logic for Linked Cases
+    print("  Testing Linked Cases Filtering Logic...")
+    filtering_data = {
+        'Ticket Number': ['INC001', 'SR002', 'INC003', 'SR004', 'INC001', None, 'SR005', 'SR002'],
+        'Type': ['Incident', 'SR', 'Incident', 'SR', 'Incident', 'SR', 'SR', 'SR'],
+        'Case Count': [3, 2, 1, 1, 3, 2, 4, 2],
+        'Details': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+    }
+    df_filtering_test = pd.DataFrame(filtering_data)
+    min_linked_cases = 2
+
+    # Apply filtering as done in app.py
+    linked_cases_df = df_filtering_test[
+        (df_filtering_test['Case Count'] >= min_linked_cases) &
+        (df_filtering_test['Ticket Number'].notna())
+    ]
+
+    # Create summary as done in app.py
+    if not linked_cases_df.empty:
+        linked_summary_df = linked_cases_df[['Ticket Number', 'Type', 'Case Count']].drop_duplicates().sort_values(
+            by='Case Count', ascending=False
+        ).reset_index(drop=True)
+    else:
+        linked_summary_df = pd.DataFrame(columns=['Ticket Number', 'Type', 'Case Count'])
+
+    expected_summary_data = {
+        'Ticket Number': ['SR005', 'INC001', 'SR002'],
+        'Type': ['SR', 'Incident', 'SR'],
+        'Case Count': [4, 3, 2]
+    }
+    df_expected_summary = pd.DataFrame(expected_summary_data)
+
+    pd.testing.assert_frame_equal(linked_summary_df, df_expected_summary, check_dtype=False)
+    print("  Linked Cases Filtering Logic Test Passed.")
+
+    # Test Filtering Logic - Edge case: No items meet criteria
+    print("  Testing Linked Cases Filtering Logic (Edge Case: No items)...")
+    min_linked_cases_high = 5
+    linked_cases_df_edge = df_filtering_test[
+        (df_filtering_test['Case Count'] >= min_linked_cases_high) &
+        (df_filtering_test['Ticket Number'].notna())
+    ]
+    if not linked_cases_df_edge.empty:
+        linked_summary_df_edge = linked_cases_df_edge[['Ticket Number', 'Type', 'Case Count']].drop_duplicates().sort_values(
+            by='Case Count', ascending=False
+        ).reset_index(drop=True)
+    else:
+        linked_summary_df_edge = pd.DataFrame(columns=['Ticket Number', 'Type', 'Case Count'])
+
+    df_expected_empty_summary = pd.DataFrame(columns=['Ticket Number', 'Type', 'Case Count'])
+    pd.testing.assert_frame_equal(linked_summary_df_edge, df_expected_empty_summary, check_dtype=False)
+    print("  Linked Cases Filtering Logic (Edge Case: No items) Test Passed.")
+
+    print("All test_case_count_calculation_and_filtering tests passed.")
+
 def test_calculate_team_status_summary():
     """Tests for the calculate_team_status_summary function."""
     print("Running test_calculate_team_status_summary...")
@@ -195,7 +268,6 @@ def test_calculate_team_status_summary():
     print("All test_calculate_team_status_summary tests passed.")
 
 if __name__ == '__main__':
-    # This will run only the new tests.
-    # If other tests exist and need to be run, this block should be updated.
     test_calculate_team_status_summary()
-    print("utils.py specific tests (calculate_team_status_summary) passed successfully when run directly.")
+    test_case_count_calculation_and_filtering() # Add call to the new test function
+    print("All utils.py tests passed successfully when run directly.")
