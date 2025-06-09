@@ -130,6 +130,8 @@ if 'selected_case_ids' not in st.session_state:
     st.session_state.selected_case_ids = []
 if 'incident_overview_df' not in st.session_state:
     st.session_state.incident_overview_df = None
+if 'report_datetime' not in st.session_state:
+    st.session_state.report_datetime = None
 
 # Function to load and process data
 @st.cache_data
@@ -140,6 +142,18 @@ def load_data(file):
     try:
         file_name = file.name
         file_extension = os.path.splitext(file_name)[1].lower()
+
+        st.session_state.report_datetime = None # Initialize/reset
+        match = re.search(r'_(\d{8})_(\d{6})\.', file_name)
+        if match:
+            date_str = match.group(1)
+            time_str = match.group(2)
+            try:
+                dt_object = datetime.strptime(date_str + time_str, '%Y%m%d%H%M%S')
+                st.session_state.report_datetime = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                st.session_state.report_datetime = None # Handle parsing error
+                # Optionally, log this error: st.warning(f"Could not parse date/time from filename: {file_name}")
         
         if file_extension == '.xls':
             try:
@@ -241,6 +255,8 @@ def generate_excel_download(data):
 
 # Sidebar - File Upload Section
 with st.sidebar:
+    # Display the logo
+    st.image("Smart Q Logo.jpg", use_column_width='auto')
     st.title("📊 Intellipen Analyzer Pro Test")
     st.markdown("---")
 
@@ -637,8 +653,14 @@ else:
     if selected == "Analysis":
         st.title("🔍 Analysis")
         
-        # Display last update time
-        st.markdown(f"**Last data update:** {st.session_state.last_upload_time}")
+        # Display last update time more dynamically
+        if st.session_state.get('report_datetime'):
+            update_time_display = st.session_state.report_datetime + " (from report filename)"
+        elif st.session_state.get('last_upload_time'):
+            update_time_display = st.session_state.last_upload_time + " (upload time)"
+        else:
+            update_time_display = "Not available"
+        st.markdown(f"**Last data update:** {update_time_display}")
         
         # Filtering options
         col1, col2,col3 = st.columns(3)
