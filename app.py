@@ -423,9 +423,9 @@ with st.sidebar:
 
 # Main content
 if not st.session_state.data_loaded:
-    st.title("📊 Intellipen Analyzer Pro Enhanced")
+    st.title("📊 Intellipen SmartQ Test")
     st.markdown("""
-    ### Welcome to the Enhanced Intellipen Analyzer Pro!
+    ### Welcome to the Intellipen SmartQ Test!
     
     This application helps you analyze Service Requests and Incidents efficiently.
     
