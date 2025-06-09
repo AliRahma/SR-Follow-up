@@ -270,7 +270,8 @@ with st.sidebar:
             df = load_data(uploaded_file)
             if df is not None:
                 st.session_state.main_df = process_main_df(df)
-                st.session_state.last_upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                abu_dhabi_tz = pytz.timezone('Asia/Dubai')
+                st.session_state.last_upload_time = datetime.now(abu_dhabi_tz).strftime("%Y-%m-%d %H:%M:%S")
                 st.success(f"Main data loaded: {df.shape[0]} records") # Ensure this is also within the check
                 st.session_state.data_loaded = True
     
@@ -308,10 +309,15 @@ with st.sidebar:
                 st.session_state.incident_overview_df = None # Ensure it's None if file loading failed
     
     # Display last upload time
-    abu_dhabi_tz = pytz.timezone('Asia/Dubai')
-    st.session_state.last_upload_time = datetime.now(abu_dhabi_tz).strftime("%Y-%m-%d %H:%M:%S")
-    if st.session_state.last_upload_time:
-        st.info(f"Last upload: {st.session_state.last_upload_time}")
+    # abu_dhabi_tz = pytz.timezone('Asia/Dubai') # This line is removed as last_upload_time is set upon actual upload
+    if 'last_upload_time' not in st.session_state or st.session_state.last_upload_time is None:
+        # If no actual upload has happened in this session, prevent setting a misleading "current time" as upload time.
+        pass
+
+    if st.session_state.get('last_upload_time'): # Use .get for safer access
+        st.info(f"Last data import: {st.session_state.last_upload_time}") # Changed label for clarity
+    else:
+        st.info("No data imported yet in this session.")
     
     st.markdown("---")
     
@@ -653,14 +659,20 @@ else:
     if selected == "Analysis":
         st.title("🔍 Analysis")
         
-        # Display last update time more dynamically
-        if st.session_state.get('report_datetime'):
-            update_time_display = st.session_state.report_datetime + " (from report filename)"
-        elif st.session_state.get('last_upload_time'):
-            update_time_display = st.session_state.last_upload_time + " (upload time)"
+        # Adjusted "Last data update" display
+        if st.session_state.get('last_upload_time'):
+            # Use a clearer label now that last_upload_time is corrected
+            update_time_display = st.session_state.last_upload_time
+            st.markdown(f"**Last Data Import Time:** {update_time_display}")
         else:
-            update_time_display = "Not available"
-        st.markdown(f"**Last data update:** {update_time_display}")
+            st.markdown("**Last Data Import Time:** No data imported yet")
+
+        # New "Report Datetime" label
+        if st.session_state.get('report_datetime'):
+            report_datetime_display = st.session_state.report_datetime
+            st.markdown(f"**Report Datetime (from filename):** {report_datetime_display}")
+        else:
+            st.markdown("**Report Datetime (from filename):** Not available")
         
         # Filtering options
         col1, col2,col3 = st.columns(3)
