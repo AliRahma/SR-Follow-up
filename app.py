@@ -141,18 +141,38 @@ def load_data(file):
     
     try:
         file_name = file.name
+        # --- TEMPORARY LOGGING START ---
+        print(f"--- DEBUG: load_data: file_name is '{file_name}' ---") 
+        # --- TEMPORARY LOGGING END ---
         file_extension = os.path.splitext(file_name)[1].lower()
 
         st.session_state.report_datetime = None # Initialize/reset
         match = re.search(r'_(\d{8})_(\d{6})\.', file_name)
+        # --- TEMPORARY LOGGING START ---
+        print(f"--- DEBUG: load_data: regex match object is {match} ---")
+        if match:
+            print(f"--- DEBUG: load_data: match.group(1) is '{match.group(1)}', match.group(2) is '{match.group(2)}' ---")
+        # --- TEMPORARY LOGGING END ---
+        
         if match:
             date_str = match.group(1)
             time_str = match.group(2)
             try:
                 dt_object = datetime.strptime(date_str + time_str, '%Y%m%d%H%M%S')
                 st.session_state.report_datetime = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-            except ValueError:
+                # --- TEMPORARY LOGGING START ---
+                print(f"--- DEBUG: load_data: successfully parsed datetime: {st.session_state.report_datetime} ---")
+                # --- TEMPORARY LOGGING END ---
+            except ValueError as e:
                 st.session_state.report_datetime = None # Handle parsing error
+                # --- TEMPORARY LOGGING START ---
+                print(f"--- DEBUG: load_data: ValueError during parsing: {e} ---")
+                # --- TEMPORARY LOGGING END ---
+                # Optionally, log this error: st.warning(f"Could not parse date/time from filename: {file_name}")
+        else:
+            # --- TEMPORARY LOGGING START ---
+            print(f"--- DEBUG: load_data: No regex match for filename '{file_name}' ---")
+            # --- TEMPORARY LOGGING END ---
                 # Optionally, log this error: st.warning(f"Could not parse date/time from filename: {file_name}")
         
         if file_extension == '.xls':
