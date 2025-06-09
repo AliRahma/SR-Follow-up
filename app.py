@@ -13,7 +13,7 @@ from utils import calculate_team_status_summary
 
 # Set page configuration
 st.set_page_config(
-    page_title="Intellipen Analyzer Test",
+    page_title="Intellipen SmartQ",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -257,11 +257,11 @@ def generate_excel_download(data):
 with st.sidebar:
     # Display the logo
     st.image("Smart Q Logo.jpg", use_column_width='auto')
-    st.title("📊 Intellipen Analyzer Pro Test")
+    st.title("📊 Intellipen SmartQ Test")
     st.markdown("---")
 
     st.subheader("📁 Data Import")
-    uploaded_file = st.file_uploader("Upload Main Excel File (.xlsx)", type=["xlsx","xls"])
+    uploaded_file = st.file_uploader("Upload Main Excel File (.xlsx)", type=["xlsx"])
     sr_status_file = st.file_uploader("Upload SR Status Excel (optional)", type=["xlsx","xls"])
     incident_status_file = st.file_uploader("Upload Incident Report Excel (optional)", type=["xlsx","xls"])
     
