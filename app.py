@@ -133,12 +133,14 @@ if 'incident_overview_df' not in st.session_state:
 if 'report_datetime' not in st.session_state:
     st.session_state.report_datetime = None
 
-# Function to load and process data
 @st.cache_data
 def load_data(file):
     if file is None:
-        return None
+        return None, None  # Return None for both DataFrame and datetime string
     
+    parsed_datetime_str = None
+    df = None
+
     try:
         file_name = file.name
         # --- TEMPORARY LOGGING START ---
@@ -146,7 +148,7 @@ def load_data(file):
         # --- TEMPORARY LOGGING END ---
         file_extension = os.path.splitext(file_name)[1].lower()
 
-        st.session_state.report_datetime = None # Initialize/reset
+        # Attempt to parse datetime from filename
         match = re.search(r'_(\d{8})_(\d{6})\.', file_name)
         # --- TEMPORARY LOGGING START ---
         print(f"--- DEBUG: load_data: regex match object is {match} ---")
@@ -159,12 +161,12 @@ def load_data(file):
             time_str = match.group(2)
             try:
                 dt_object = datetime.strptime(date_str + time_str, '%Y%m%d%H%M%S')
-                st.session_state.report_datetime = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+                parsed_datetime_str = dt_object.strftime('%Y-%m-%d %H:%M:%S')
                 # --- TEMPORARY LOGGING START ---
-                print(f"--- DEBUG: load_data: successfully parsed datetime: {st.session_state.report_datetime} ---")
+                print(f"--- DEBUG: load_data: successfully parsed datetime: {parsed_datetime_str} ---")
                 # --- TEMPORARY LOGGING END ---
             except ValueError as e:
-                st.session_state.report_datetime = None # Handle parsing error
+                # parsed_datetime_str remains None if parsing fails
                 # --- TEMPORARY LOGGING START ---
                 print(f"--- DEBUG: load_data: ValueError during parsing: {e} ---")
                 # --- TEMPORARY LOGGING END ---
@@ -173,30 +175,29 @@ def load_data(file):
             # --- TEMPORARY LOGGING START ---
             print(f"--- DEBUG: load_data: No regex match for filename '{file_name}' ---")
             # --- TEMPORARY LOGGING END ---
-                # Optionally, log this error: st.warning(f"Could not parse date/time from filename: {file_name}")
+            # Optionally, log this error: st.warning(f"Could not parse date/time from filename: {file_name}")
         
+        # Read the Excel file
         if file_extension == '.xls':
             try:
-                # First attempt with xlrd
-                return pd.read_excel(file, engine='xlrd')
-            except Exception: # Catch errors from xlrd
+                df = pd.read_excel(file, engine='xlrd')
+            except Exception:
                 try:
-                    file.seek(0) # Reset file pointer
-                    # Second attempt with openpyxl
-                    return pd.read_excel(file, engine='openpyxl')
+                    file.seek(0)
+                    df = pd.read_excel(file, engine='openpyxl')
                 except Exception as e_openpyxl:
-                    # If openpyxl also fails, raise the error to be caught by the main handler
                     raise e_openpyxl
-            return pd.read_excel(file, engine='xlrd')
-
         elif file_extension == '.xlsx':
-            return pd.read_excel(file, engine='openpyxl')
+            df = pd.read_excel(file, engine='openpyxl')
         else:
-            raise ValueError("Unsupported file type. Please upload .xls or .xlsx files.")
+            st.error(f"Unsupported file type: {file_extension}. Please upload .xls or .xlsx files.") # Changed from raise to st.error
+            return None, parsed_datetime_str # Return None for df if unsupported, but retain parsed_datetime_str if filename was parsable
+
+        return df, parsed_datetime_str
             
     except Exception as e:
-        st.error(f"Error loading file: {e}")
-        return None
+        st.error(f"Error loading file '{file.name}': {e}")
+        return None, parsed_datetime_str # Return None for df, but parsed_datetime_str might have a value if filename parsing happened before exception
 
 # Function to process main dataframe
 def process_main_df(df):
@@ -285,97 +286,88 @@ with st.sidebar:
     sr_status_file = st.file_uploader("Upload SR Status Excel (optional)", type=["xlsx","xls"])
     incident_status_file = st.file_uploader("Upload Incident Report Excel (optional)", type=["xlsx","xls"])
     
+    # report_datetime is initialized to None at the start of the session.
+    # We process files in order: Main, SR, Incident for setting it IF it's currently None.
+
     if uploaded_file:
         with st.spinner("Loading main data..."):
-            df = load_data(uploaded_file)
+            df, parsed_dt = load_data(uploaded_file)
             if df is not None:
                 st.session_state.main_df = process_main_df(df)
                 abu_dhabi_tz = pytz.timezone('Asia/Dubai')
                 st.session_state.last_upload_time = datetime.now(abu_dhabi_tz).strftime("%Y-%m-%d %H:%M:%S")
-                st.success(f"Main data loaded: {df.shape[0]} records") # Ensure this is also within the check
+                st.success(f"Main data loaded: {df.shape[0]} records")
                 st.session_state.data_loaded = True
-    
+                if parsed_dt:
+                    st.session_state.report_datetime = parsed_dt
+            # If df is None, load_data would have shown an error. parsed_dt might still have a value if filename was parsable but content failed.
+            # However, if df is None, we probably shouldn't use its parsed_dt either, as the file is unusable.
+            # The current load_data returns (None, parsed_dt) even on file read error.
+            # Consider if parsed_dt should only be used if df is not None.
+            # For now, strictly following: if parsed_dt is not None from main file, use it.
+            # This was already handled by: if parsed_dt: st.session_state.report_datetime = parsed_dt. This is fine.
+
     if sr_status_file:
         with st.spinner("Loading SR status data..."):
-            sr_df = load_data(sr_status_file)
-            if sr_df is not None: # Add this check
+            sr_df, parsed_dt_sr = load_data(sr_status_file)
+            if sr_df is not None:
                 st.session_state.sr_df = sr_df
                 st.success(f"SR status data loaded: {sr_df.shape[0]} records")
+                if st.session_state.report_datetime is None and parsed_dt_sr:
+                    st.session_state.report_datetime = parsed_dt_sr
+            # else: df is None, error shown by load_data
     
     if incident_status_file:
         with st.spinner("Loading incident report data..."):
-            incident_df = load_data(incident_status_file)
-            if incident_df is not None: # Add this check
+            incident_df, parsed_dt_incident = load_data(incident_status_file)
+            if incident_df is not None:
                 st.session_state.incident_df = incident_df
                 st.success(f"Incident report data loaded: {incident_df.shape[0]} records")
+                if st.session_state.report_datetime is None and parsed_dt_incident:
+                    st.session_state.report_datetime = parsed_dt_incident
 
-                # Process for Incident Overview tab
-                # Copy all columns from incident_df
+                # Process for Incident Overview tab (existing logic)
                 overview_df = incident_df.copy()
-
-                # Rename "Customer" to "Creator" if "Customer" column exists
                 if "Customer" in overview_df.columns:
                     overview_df.rename(columns={"Customer": "Creator"}, inplace=True)
-
-                # Store the full overview_df in session state
                 st.session_state.incident_overview_df = overview_df
                 st.success(f"Incident Overview data loaded: {len(overview_df)} records, {len(overview_df.columns)} columns.")
-
-                # Note: The old logic for 'required_cols' and 'missing_cols' check at this stage is removed.
-                # Specific column checks will be handled within the "Incident Overview" tab itself
-                # for UI elements that depend on them (e.g., filters, default table views).
-
             else:
-                st.session_state.incident_overview_df = None # Ensure it's None if file loading failed
+                st.session_state.incident_overview_df = None
     
-    # Display last upload time
-    # abu_dhabi_tz = pytz.timezone('Asia/Dubai') # This line is removed as last_upload_time is set upon actual upload
+    # Display last upload time (existing logic)
     if 'last_upload_time' not in st.session_state or st.session_state.last_upload_time is None:
-        # If no actual upload has happened in this session, prevent setting a misleading "current time" as upload time.
         pass
-
-    if st.session_state.get('last_upload_time'): # Use .get for safer access
-        st.info(f"Last data import: {st.session_state.last_upload_time}") # Changed label for clarity
+    if st.session_state.get('last_upload_time'):
+        st.info(f"Last data import: {st.session_state.last_upload_time}")
     else:
         st.info("No data imported yet in this session.")
     
     st.markdown("---")
     
-    # Filters section
+    # Filters section (existing logic, depends on st.session_state.data_loaded)
     if st.session_state.data_loaded:
         st.subheader("🔍 Filters")
-        
-        # Get all users
-        df_main = st.session_state.main_df.copy()
+        df_main = st.session_state.main_df.copy() # Should be safe as data_loaded is True
         all_users = df_main['Current User Id'].dropna().unique().tolist()
-        
-        # Define the "Select All" constant string
         SELECT_ALL_USERS_OPTION = "[Select All Users]"
+        default_users_hardcoded = ['ali.babiker', 'anas.hasan', 'ahmed.mostafa']
+        default_users = [u for u in default_users_hardcoded if u in all_users]
 
-        # Multi-select for users
-        default_users_hardcoded = ['ali.babiker', 'anas.hasan', 'ahmed.mostafa'] # Original hardcoded list
-        default_users = [u for u in default_users_hardcoded if u in all_users]  # Filtered against actual users
-
-        # Initialization of session state for the widget
         if 'sidebar_user_widget_selection_controlled' not in st.session_state:
-            # default_users is a hardcoded list, filtered against all_users
-            # Initially, selected_users for filtering should be these defaults.
             st.session_state.selected_users = list(default_users)
-
-            if not default_users and all_users: # If default_users is empty (e.g. hardcoded ones not in all_users) AND there are users, select all
+            if not default_users and all_users:
                 st.session_state.selected_users = list(all_users)
                 st.session_state.sidebar_user_widget_selection_controlled = [SELECT_ALL_USERS_OPTION]
-            elif all_users and set(default_users) == set(all_users): # If default_users happens to be all users
+            elif all_users and set(default_users) == set(all_users):
                 st.session_state.sidebar_user_widget_selection_controlled = [SELECT_ALL_USERS_OPTION]
-            elif not all_users: # If there are no users at all
+            elif not all_users:
                  st.session_state.selected_users = []
                  st.session_state.sidebar_user_widget_selection_controlled = []
-            else: # Default users are a subset of all_users
+            else:
                 st.session_state.sidebar_user_widget_selection_controlled = list(default_users)
 
         options_for_user_widget = [SELECT_ALL_USERS_OPTION] + all_users
-
-        # Call st.multiselect
         raw_widget_selection = st.multiselect(
             "Select Users",
             options=options_for_user_widget,
@@ -383,18 +375,11 @@ with st.sidebar:
             key="multi_select_sidebar_users"
         )
 
-        # Logic to process widget output and update session state
         prev_widget_display_state = list(st.session_state.sidebar_user_widget_selection_controlled)
         current_select_all_option_selected = SELECT_ALL_USERS_OPTION in raw_widget_selection
-        # prev_select_all_option_selected = SELECT_ALL_USERS_OPTION in prev_widget_display_state # Not needed with new logic directly
         currently_selected_actual_items = [u for u in raw_widget_selection if u != SELECT_ALL_USERS_OPTION]
-
-        # Determine if user explicitly clicked "Select All" or "Unselect All"
-        # This requires comparing raw_widget_selection with prev_widget_display_state carefully
-
         user_clicked_select_all = current_select_all_option_selected and (SELECT_ALL_USERS_OPTION not in prev_widget_display_state)
         user_clicked_unselect_all = (not current_select_all_option_selected) and (SELECT_ALL_USERS_OPTION in prev_widget_display_state and len(prev_widget_display_state) == 1)
-
 
         if user_clicked_select_all:
             st.session_state.selected_users = list(all_users)
@@ -403,37 +388,27 @@ with st.sidebar:
             st.session_state.selected_users = []
             st.session_state.sidebar_user_widget_selection_controlled = []
         else:
-            # Handle individual selections or deselections
-            if current_select_all_option_selected: # "[Select All]" is in raw_widget_selection
-                # This means user de-selected an item while "[Select All]" was (or became) part of raw_widget_selection
-                # Or, user selected all items manually, then also clicked "[Select All]" (which is redundant)
-                # If an item was deselected, "[Select All]" should be removed from display, and actual items shown.
+            if current_select_all_option_selected:
                 if len(currently_selected_actual_items) < len(all_users):
                     st.session_state.selected_users = list(currently_selected_actual_items)
                     st.session_state.sidebar_user_widget_selection_controlled = list(currently_selected_actual_items)
-                else: # All items are selected, and "[Select All]" is present
+                else:
                     st.session_state.selected_users = list(all_users)
                     st.session_state.sidebar_user_widget_selection_controlled = [SELECT_ALL_USERS_OPTION]
-            else: # "[Select All]" is NOT in raw_widget_selection
+            else:
                 st.session_state.selected_users = list(currently_selected_actual_items)
                 if all_users and set(currently_selected_actual_items) == set(all_users):
-                    # All items were individually selected
                     st.session_state.sidebar_user_widget_selection_controlled = [SELECT_ALL_USERS_OPTION]
                 else:
                     st.session_state.sidebar_user_widget_selection_controlled = list(currently_selected_actual_items)
         
-        # Date range filter
         if 'Case Start Date' in df_main.columns:
             min_date = df_main['Case Start Date'].min().date()
             max_date = df_main['Case Start Date'].max().date()
-
             if 'sidebar_date_range_value' not in st.session_state:
                 st.session_state.sidebar_date_range_value = (min_date, max_date)
-
             if st.button("Select Full Range", key="btn_select_full_date_range"):
                 st.session_state.sidebar_date_range_value = (min_date, max_date)
-                # Consider st.experimental_rerun() if needed, but often not required for direct value changes
-
             current_date_range_from_widget = st.date_input(
                 "Date Range",
                 value=st.session_state.sidebar_date_range_value,
@@ -441,10 +416,8 @@ with st.sidebar:
                 max_value=max_date,
                 key="date_input_sidebar"
             )
-
             if current_date_range_from_widget != st.session_state.sidebar_date_range_value:
                 st.session_state.sidebar_date_range_value = current_date_range_from_widget
-
             date_range = st.session_state.sidebar_date_range_value
 
 # Main content
