@@ -509,161 +509,181 @@ else:
     
     # Function to further process and enrich data
     def enrich_data(df):
-        # Create a copy to avoid modifying the original
         df_enriched = df.copy()
         
         # Classify and extract ticket info
-        df_enriched[['Triage Status', 'Ticket Number', 'Type']] = pd.DataFrame(
-            df_enriched['Last Note'].apply(lambda x: pd.Series(classify_and_extract(x)))
-        )
-        
+        if 'Last Note' in df_enriched.columns:
+            df_enriched[['Triage Status', 'Ticket Number', 'Type']] = pd.DataFrame(
+                df_enriched['Last Note'].apply(lambda x: pd.Series(classify_and_extract(x)))
+            )
+        else:
+            df_enriched['Triage Status'] = "Error: Last Note missing"
+            df_enriched['Ticket Number'] = None
+            df_enriched['Type'] = None
+
         # Calculate case age
         if 'Case Start Date' in df_enriched.columns:
             df_enriched['Age (Days)'] = df_enriched['Case Start Date'].apply(calculate_age)
-        
+        else:
+            df_enriched['Age (Days)'] = None
+
         # Determine if note was created today
         if 'Last Note Date' in df_enriched.columns:
             df_enriched['Created Today'] = df_enriched['Last Note Date'].apply(is_created_today)
+        else:
+            df_enriched['Created Today'] = False
         
-        # Initialize Status and Last Update columns
+        # Initialize Status, Last Update, and Breach Passed columns
         df_enriched['Status'] = None
         df_enriched['Last Update'] = None
         df_enriched['Breach Passed'] = None
         
-        # Merge with SR status data if available
-        if st.session_state.sr_df is not None:
-            sr_df = st.session_state.sr_df.copy()
-            
-            # Clean and prepare SR data
-            sr_df['Service Request'] = sr_df['Service Request'].astype(str).str.extract(r'(\d{4,})')
-            sr_df['Service Request'] = pd.to_numeric(sr_df['Service Request'], errors='coerce')
-            
-            # Rename columns for clarity
-            sr_df = sr_df.rename(columns={
-                'Status': 'SR_Status',
-                'LastModDateTime': 'SR_Last_Update'
-            })
-            
-            # Merge SR data
+        # Ensure 'Ticket Number' is numeric before any merges
+        if 'Ticket Number' in df_enriched.columns:
             df_enriched['Ticket Number'] = pd.to_numeric(df_enriched['Ticket Number'], errors='coerce')
-            df_enriched = df_enriched.merge(
-                sr_df[['Service Request', 'SR_Status', 'SR_Last_Update', 'Breach Passed']],
-                how='left',
-                left_on='Ticket Number',
-                right_on='Service Request'
-            ).drop(columns=['Service Request'])
+
+        # Merge with SR status data if available
+        if hasattr(st.session_state, 'sr_df') and st.session_state.sr_df is not None:
+            sr_df_copy = st.session_state.sr_df.copy()
             
-            # Update Status and Last Update for SRs
-            sr_mask = df_enriched['Type'] == 'SR'
-            df_enriched.loc[sr_mask, 'Status'] = df_enriched.loc[sr_mask, 'SR_Status']
-            df_enriched.loc[sr_mask, 'Last Update'] = df_enriched.loc[sr_mask, 'SR_Last_Update']
-            
-            # Drop temporary columns
-            df_enriched = df_enriched.drop(columns=['SR_Status', 'SR_Last_Update'], errors='ignore')
-            
+            if 'Service Request' in sr_df_copy.columns:
+                sr_df_copy['Service Request'] = sr_df_copy['Service Request'].astype(str).str.extract(r'(\d{4,})')
+                sr_df_copy['Service Request'] = pd.to_numeric(sr_df_copy['Service Request'], errors='coerce')
+                sr_df_copy.dropna(subset=['Service Request'], inplace=True)
+
+                cols_to_merge_from_sr = ['Service Request']
+                sr_rename_for_merge = {}
+
+                if 'Status' in sr_df_copy.columns:
+                    sr_rename_for_merge['Status'] = 'SR_Status_temp'
+                if 'LastModDateTime' in sr_df_copy.columns:
+                    sr_rename_for_merge['LastModDateTime'] = 'SR_Last_Update_temp'
+                if 'Breach Passed' in sr_df_copy.columns:
+                    sr_rename_for_merge['Breach Passed'] = 'SR_Breach_Value_temp'
+
+                sr_df_copy.rename(columns=sr_rename_for_merge, inplace=True)
+
+                for new_name in sr_rename_for_merge.values():
+                    if new_name not in cols_to_merge_from_sr:
+                        cols_to_merge_from_sr.append(new_name)
+
+                df_enriched = df_enriched.merge(
+                    sr_df_copy[cols_to_merge_from_sr],
+                    how='left',
+                    left_on='Ticket Number',
+                    right_on='Service Request',
+                    suffixes=('', '_sr_merged')
+                )
+
+                if 'Service Request_sr_merged' in df_enriched.columns:
+                    df_enriched.drop(columns=['Service Request_sr_merged'], inplace=True)
+                elif 'Service Request' in df_enriched.columns and 'Ticket Number' in df_enriched.columns and df_enriched.columns.tolist().count('Service Request') > 1:
+                     df_enriched.drop(columns=['Service Request'], errors='ignore', inplace=True)
+
+                sr_mask = df_enriched['Type'] == 'SR'
+
+                if 'SR_Status_temp' in df_enriched.columns:
+                    df_enriched.loc[sr_mask, 'Status'] = df_enriched.loc[sr_mask, 'SR_Status_temp']
+                    df_enriched.drop(columns=['SR_Status_temp'], inplace=True)
+                if 'SR_Last_Update_temp' in df_enriched.columns:
+                    df_enriched.loc[sr_mask, 'Last Update'] = df_enriched.loc[sr_mask, 'SR_Last_Update_temp']
+                    df_enriched.drop(columns=['SR_Last_Update_temp'], inplace=True)
+
+                if 'SR_Breach_Value_temp' in df_enriched.columns:
+                    def map_str_to_bool_sr(value):
+                        if pd.isna(value): return None
+                        val_lower = str(value).lower()
+                        if val_lower in ['yes', 'true', '1', 'passed'] : return True
+                        if val_lower in ['no', 'false', '0', 'failed']: return False
+                        return None # Default for unmapped strings
+
+                    mapped_values = df_enriched.loc[sr_mask, 'SR_Breach_Value_temp'].apply(map_str_to_bool_sr)
+                    df_enriched.loc[sr_mask, 'Breach Passed'] = mapped_values
+                    df_enriched.drop(columns=['SR_Breach_Value_temp'], inplace=True)
+
         # Merge with Incident status data if available
-        if st.session_state.incident_df is not None:
-            incident_df = st.session_state.incident_df.copy()
-            
-            # Check for different possible column names for incident ID
-            # Prioritize "Incident Number"
+        if hasattr(st.session_state, 'incident_df') and st.session_state.incident_df is not None:
+            incident_df_copy = st.session_state.incident_df.copy()
             incident_id_col_options = ['Incident', 'Incident ID', 'IncidentID', 'ID', 'Number']
             incident_id_col = None
             for col_option in incident_id_col_options:
-                if col_option in incident_df.columns:
+                if col_option in incident_df_copy.columns:
                     incident_id_col = col_option
                     break
             
             if incident_id_col:
-                # Clean and prepare Incident data
-                incident_df[incident_id_col] = incident_df[incident_id_col].astype(str).str.extract(r'(\d{4,})')
-                incident_df[incident_id_col] = pd.to_numeric(incident_df[incident_id_col], errors='coerce')
+                incident_df_copy[incident_id_col] = incident_df_copy[incident_id_col].astype(str).str.extract(r'(\d{4,})')
+                incident_df_copy[incident_id_col] = pd.to_numeric(incident_df_copy[incident_id_col], errors='coerce')
+                incident_df_copy.dropna(subset=[incident_id_col], inplace=True)
                 
-                # Define columns to be used from incident_df
-                incident_rename_map = {incident_id_col: 'Incident_Number'}
-                incident_merge_cols = ['Incident_Number']
+                inc_rename_map = {incident_id_col: 'Incident_Number_temp'}
+                inc_merge_cols = ['Incident_Number_temp']
 
-                # Status column
-                if 'Status' in incident_df.columns:
-                    incident_rename_map['Status'] = 'INC_Status'
-                    incident_merge_cols.append('INC_Status')
-                else:
-                    st.warning("Column 'Status' not found in Incident report. Incident status will not be updated.")
+                if 'Status' in incident_df_copy.columns:
+                    inc_rename_map['Status'] = 'INC_Status_temp'
+                    inc_merge_cols.append('INC_Status_temp')
 
-                # Last Update column - prioritize "Last Checked at"
                 last_update_col_incident = None
-                if 'Last Checked at' in incident_df.columns:
-                    last_update_col_incident = 'Last Checked at'
-                elif 'Last Checked atc' in incident_df.columns: # Handling typo
-                    last_update_col_incident = 'Last Checked atc'
-                elif 'Modified On' in incident_df.columns: # Fallback
-                    last_update_col_incident = 'Modified On'
-                elif 'Last Update' in incident_df.columns: # Fallback
-                    last_update_col_incident = 'Last Update'
+                if 'Last Checked at' in incident_df_copy.columns: last_update_col_incident = 'Last Checked at'
+                elif 'Last Checked atc' in incident_df_copy.columns: last_update_col_incident = 'Last Checked atc'
+                elif 'Modified On' in incident_df_copy.columns: last_update_col_incident = 'Modified On'
+                elif 'Last Update' in incident_df_copy.columns: last_update_col_incident = 'Last Update'
 
                 if last_update_col_incident:
-                    incident_rename_map[last_update_col_incident] = 'INC_Last_Update'
-                    incident_merge_cols.append('INC_Last_Update')
-                else:
-                    st.warning("Suitable 'Last Update' column (e.g., 'Last Checked at') not found in Incident report. Incident last update time will not be updated.")
+                    inc_rename_map[last_update_col_incident] = 'INC_Last_Update_temp'
+                    inc_merge_cols.append('INC_Last_Update_temp')
 
-                # Breach Indicator column
-                if 'Breach Passed' in incident_df.columns:
-                    incident_rename_map['Breach Passed'] = 'INC_Breach_Passed'
-                    incident_merge_cols.append('INC_Breach_Passed')
-                else:
-                    st.warning("Column 'Breach Passed' not found in Incident report. Incident breach status will not be updated.")
+                if 'Breach Passed' in incident_df_copy.columns:
+                    inc_rename_map['Breach Passed'] = 'INC_Breach_Passed_temp'
+                    inc_merge_cols.append('INC_Breach_Passed_temp')
 
-                incident_df = incident_df.rename(columns=incident_rename_map)
+                incident_df_copy.rename(columns=inc_rename_map, inplace=True)
                 
-                # Select only necessary columns for merging
-                incident_df_to_merge = incident_df[incident_merge_cols].copy()
-
-                # Filter out NaN Incident_Numbers from incident_df_to_merge before merging
-                if 'Incident_Number' in incident_df_to_merge.columns:
-                    incident_df_to_merge = incident_df_to_merge.dropna(subset=['Incident_Number'])
-
-                # Merge Incident data
                 df_enriched = df_enriched.merge(
-                    incident_df_to_merge,
+                    incident_df_copy[inc_merge_cols],
                     how='left',
                     left_on='Ticket Number',
-                    right_on='Incident_Number'
-                ).drop(columns=['Incident_Number'], errors='ignore')
-                
-                # Update Status and Last Update for Incidents
+                    right_on='Incident_Number_temp',
+                    suffixes=('', '_inc_merged')
+                )
+                if 'Incident_Number_temp_inc_merged' in df_enriched.columns:
+                     df_enriched.drop(columns=['Incident_Number_temp_inc_merged'], inplace=True)
+                elif 'Incident_Number_temp' in df_enriched.columns :
+                     df_enriched.drop(columns=['Incident_Number_temp'], inplace=True, errors='ignore')
+
                 incident_mask = df_enriched['Type'] == 'Incident'
                 
-                if 'INC_Status' in df_enriched.columns:
-                    df_enriched.loc[incident_mask, 'Status'] = df_enriched.loc[incident_mask, 'INC_Status']
-                if 'INC_Last_Update' in df_enriched.columns:
-                    df_enriched.loc[incident_mask, 'Last Update'] = df_enriched.loc[incident_mask, 'INC_Last_Update']
+                if 'INC_Status_temp' in df_enriched.columns:
+                    df_enriched.loc[incident_mask, 'Status'] = df_enriched.loc[incident_mask, 'INC_Status_temp']
+                    df_enriched.drop(columns=['INC_Status_temp'], inplace=True)
+                if 'INC_Last_Update_temp' in df_enriched.columns:
+                    df_enriched.loc[incident_mask, 'Last Update'] = df_enriched.loc[incident_mask, 'INC_Last_Update_temp']
+                    df_enriched.drop(columns=['INC_Last_Update_temp'], inplace=True)
                 
-                # Update Breach Passed for incidents
-                if 'INC_Breach_Passed' in df_enriched.columns:
-                    # Ensure INC_Breach_Passed is boolean
-                    df_enriched['INC_Breach_Passed'] = df_enriched['INC_Breach_Passed'].astype(bool)
-                    incident_breach_mask = (df_enriched['Type'] == 'Incident') & (df_enriched['INC_Breach_Passed'] == True)
-                    df_enriched.loc[incident_breach_mask, 'Breach Passed'] = True
-                
-                # Drop temporary INC columns
-                inc_cols_to_drop = [col for col in ['INC_Status', 'INC_Last_Update', 'INC_Breach_Passed'] if col in df_enriched.columns]
-                if inc_cols_to_drop:
-                    df_enriched = df_enriched.drop(columns=inc_cols_to_drop)
-            else:
-                st.warning("No suitable Incident ID column found in the Incident report. Incident data cannot be merged.")
-            
-        # Clean up date columns (ensure this is done after all merges and updates)
+                if 'INC_Breach_Passed_temp' in df_enriched.columns:
+                    def map_str_to_bool_inc(value):
+                        if pd.isna(value): return None
+                        if isinstance(value, bool): return value
+                        val_lower = str(value).lower()
+                        if val_lower in ['yes', 'true', '1', 'passed', 'breached']: return True
+                        if val_lower in ['no', 'false', '0', 'failed', 'not breached']: return False
+                        return None
+
+                    mapped_inc_breach_values = df_enriched.loc[incident_mask, 'INC_Breach_Passed_temp'].apply(map_str_to_bool_inc)
+                    df_enriched.loc[incident_mask, 'Breach Passed'] = mapped_inc_breach_values
+                    df_enriched.drop(columns=['INC_Breach_Passed_temp'], inplace=True)
+
         if 'Last Update' in df_enriched.columns:
             df_enriched['Last Update'] = pd.to_datetime(df_enriched['Last Update'], errors='coerce')
         if 'Breach Date' in df_enriched.columns:
             df_enriched['Breach Date'] = pd.to_datetime(df_enriched['Breach Date'], errors='coerce')
 
-        # Calculate Case Count
         if 'Ticket Number' in df_enriched.columns and 'Type' in df_enriched.columns:
-            df_enriched['Case Count'] = df_enriched.groupby(['Ticket Number', 'Type'])['Ticket Number'].transform('size')
+            valid_ticket_mask = df_enriched['Ticket Number'].notna() & df_enriched['Type'].notna()
+            if valid_ticket_mask.any():
+                 df_enriched.loc[valid_ticket_mask, 'Case Count'] = df_enriched[valid_ticket_mask].groupby(['Ticket Number', 'Type'])['Ticket Number'].transform('size')
         else:
-            df_enriched['Case Count'] = pd.NA # Or some other appropriate default
+            df_enriched['Case Count'] = pd.NA
             
         return df_enriched
     
