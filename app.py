@@ -466,18 +466,18 @@ else:
         icons=["kanban", "exclamation-triangle", "calendar-date", "clipboard-data"],
         menu_icon="cast",
         default_index=0,
-        orientation="horizontal"
-        # styles={
-        #     "container": {"padding": "0!important", "margin": "0!important"},
-        #     "icon": {"color": "#1565c0", "font-size": "14px"},
-        #     "nav-link": {
-        #         "font-size": "14px",
-        #         "text-align": "center",
-        #         "margin": "0px",
-        #         "--hover-color": "#eee",
-        #     },
-        #     "nav-link-selected": {"background-color": "#1976d2", "color": "white"},
-        # }
+        orientation="horizontal",
+        styles={
+            "container": {"padding": "0!important", "margin": "0!important"},
+            "icon": {"color": "#1565c0", "font-size": "14px"},
+            "nav-link": {
+                "font-size": "14px",
+                "text-align": "center",
+                "margin": "0px",
+                "--hover-color": "#eee",
+            },
+            "nav-link-selected": {"background-color": "#1976d2", "color": "white"},
+        }
     )
     
     # Function to further process and enrich data
