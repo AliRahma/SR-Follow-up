@@ -16,8 +16,7 @@ st.set_page_config(
     page_title="Intellipen SmartQ",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded",
-    theme="auto"  # Respect OS/browser preference for light/dark mode
+    initial_sidebar_state="expanded"
 )
 
 # Custom CSS for styling
