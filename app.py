@@ -16,7 +16,8 @@ st.set_page_config(
     page_title="Intellipen SmartQ",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    theme="auto"  # Respect OS/browser preference for light/dark mode
 )
 
 # Custom CSS for styling
@@ -105,6 +106,140 @@ def set_custom_theme():
     }
     .action-button:hover {
         background-color: #1565c0;
+    }
+
+    /* Dark Mode Styles */
+    @media (prefers-color-scheme: dark) {
+        .main {
+            background-color: #0e1117; /* Streamlit's default dark background */
+            color: #fafafa; /* Light text for dark background */
+        }
+        .stApp {
+            color: #fafafa;
+        }
+        .stDataFrame, .stTable {
+            background-color: #262730; /* Darker background for tables */
+            color: #fafafa;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.5);
+        }
+        .card {
+            background-color: #262730; /* Darker card background */
+            color: #fafafa;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+        .metric-value {
+            color: #fafafa;
+        }
+        .metric-label {
+            color: #aaa; /* Lighter grey for labels */
+        }
+        h1, h2, h3 {
+            color: #5c9dff; /* A lighter blue for headings */
+        }
+        /* Adjust badge colors for dark mode */
+        .badge-pending {
+            background-color: #533f00; /* Darker yellow */
+            color: #ffecb3;
+        }
+        .badge-complete {
+            background-color: #1b5e20; /* Darker green */
+            color: #c8e6c9;
+        }
+        .badge-in-progress {
+            background-color: #0d47a1; /* Darker blue */
+            color: #bbdefb;
+        }
+        .badge-cancelled {
+            background-color: #b71c1c; /* Darker red */
+            color: #ffcdd2;
+        }
+        .badge-breach {
+            background-color: #d32f2f; /* Slightly different red for breach */
+            color: white;
+        }
+        .action-button {
+            background-color: #5c9dff; /* Lighter blue for buttons */
+            color: #0e1117; /* Dark text for light buttons */
+        }
+        .action-button:hover {
+            background-color: #4a80cc; /* Darker shade of the button blue for hover */
+        }
+
+        /* Ensure selectbox and multiselect dropdowns are styled for dark mode */
+        div[data-baseweb="select"] > div, div[data-baseweb="multiselect"] > div {
+            background-color: #262730 !important;
+            color: #fafafa !important;
+            border: 1px solid #555 !important;
+        }
+        div[data-baseweb="select"] input, div[data-baseweb="multiselect"] input {
+            color: #fafafa !important;
+        }
+        /* Dropdown menu items */
+        div[data-baseweb="menu"] li {
+            background-color: #262730 !important;
+            color: #fafafa !important;
+        }
+        div[data-baseweb="menu"] li:hover {
+            background-color: #383943 !important;
+        }
+
+        /* Ensure text inputs are styled for dark mode */
+        .stTextInput input, .stTextArea textarea, .stDateInput input {
+            background-color: #262730 !important;
+            color: #fafafa !important;
+            border: 1px solid #555 !important;
+        }
+
+        /* Style for option menu in dark mode */
+        nav[role="tablist"] > a {
+            color: #bbb !important; /* Lighter text for non-selected tabs */
+        }
+        nav[role="tablist"] > a.nav-link-selected {
+            background-color: #5c9dff !important; /* Selected tab background */
+            color: #0e1117 !important; /* Dark text on selected tab */
+        }
+        nav[role="tablist"] > a:hover {
+            background-color: #383943 !important; /* Hover for non-selected tabs */
+            color: #fafafa !important;
+        }
+
+        /* Ensure Streamlit buttons are styled */
+        .stButton>button {
+            background-color: #5c9dff !important;
+            color: #0e1117 !important;
+            border: 1px solid #5c9dff !important;
+        }
+        .stButton>button:hover {
+            background-color: #4a80cc !important;
+            border: 1px solid #4a80cc !important;
+            color: #0e1117 !important;
+        }
+        .stDownloadButton>button {
+            background-color: #5c9dff !important;
+            color: #0e1117 !important;
+            border: 1px solid #5c9dff !important;
+        }
+        .stDownloadButton>button:hover {
+            background-color: #4a80cc !important;
+            border: 1px solid #4a80cc !important;
+            color: #0e1117 !important;
+        }
+        /* Sidebar styling */
+        .css-1d391kg { /* This class might be Streamlit version specific, targets sidebar */
+            background-color: #1a1c22 !important;
+        }
+        .css-1d391kg .stMarkdown, .css-1d391kg .stSubheader, .css-1d391kg .stTitle {
+             color: #fafafa !important;
+        }
+         /* Adjusting table header in dark mode */
+        div[data-testid="stDataFrame"] th {
+            background-color: #383943 !important; /* Darker header for tables */
+            color: #fafafa !important;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
