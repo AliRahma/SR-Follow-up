@@ -741,7 +741,7 @@ def test_calculate_srs_created_and_closed_per_week():
     data8 = {
         'Created On': pd.to_datetime(['2023-06-01', '2023-06-02', '2023-06-03', '2023-06-04']),
         'LastModDateTime': pd.to_datetime(['2023-06-05', '2023-06-06', '2023-06-07', '2023-06-08']),
-        'Status': ['Closed  ', '  cancelled', 'APPROVAL REJECTED', 'rejected by ps']
+        'Status': ['Closed  ', '  cancelled', 'APPROVAL REJECTED', 'rejected by ps','Completed']
     }
     df8 = pd.DataFrame(data8)
     result8 = calculate_srs_created_and_closed_per_week(df8)
