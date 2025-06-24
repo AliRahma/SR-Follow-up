@@ -1501,22 +1501,37 @@ else:
 
                 SELECT_ALL_TEAMS_OPTION = SELECT_ALL_BASE_STRING % "Teams"
 
+                # Define the desired default teams
+                default_teams_to_select = ["GPSSA App Team L1", "GPSSA App Team L3"]
+
                 if 'incident_team_widget_selection_controlled' not in st.session_state:
-                    st.session_state.selected_teams = list(unique_teams) # Default to all selected for filtering
-                    if unique_teams: # If there are actual teams
+                    # Filter desired default teams to only those present in unique_teams
+                    actual_default_teams = [team for team in default_teams_to_select if team in unique_teams]
+
+                    if actual_default_teams:
+                        st.session_state.selected_teams = list(actual_default_teams)
+                        # Check if all unique_teams are selected by the new default
+                        if unique_teams and set(actual_default_teams) == set(unique_teams):
+                            st.session_state.incident_team_widget_selection_controlled = [SELECT_ALL_TEAMS_OPTION]
+                        else:
+                            st.session_state.incident_team_widget_selection_controlled = list(actual_default_teams)
+                    elif unique_teams: # If desired defaults are not present, but other teams are, select all (original fallback)
+                        st.session_state.selected_teams = list(unique_teams)
                         st.session_state.incident_team_widget_selection_controlled = [SELECT_ALL_TEAMS_OPTION]
-                    else: # No teams
+                    else: # No teams in data, or desired defaults not present and no other teams
+                        st.session_state.selected_teams = []
                         st.session_state.incident_team_widget_selection_controlled = []
 
                 options_for_team_widget = [SELECT_ALL_TEAMS_OPTION] + unique_teams
+                # The default for the multiselect widget is now correctly initialized in session state
                 raw_team_widget_selection = st.multiselect(
                     "Filter by Team",
                     options=options_for_team_widget,
-                    default=st.session_state.incident_team_widget_selection_controlled,
+                    default=st.session_state.incident_team_widget_selection_controlled, # This uses the initialized value
                     key="multi_select_incident_team"
                 )
 
-                prev_widget_display_state = list(st.session_state.incident_team_widget_selection_controlled)
+                prev_widget_display_state = list(st.session_state.incident_team_widget_selection_controlled) # Used for "Select All" logic
                 current_select_all_option_selected = SELECT_ALL_TEAMS_OPTION in raw_team_widget_selection
                 currently_selected_actual_items = [t for t in raw_team_widget_selection if t != SELECT_ALL_TEAMS_OPTION]
 
