@@ -1,6 +1,7 @@
 import pandas as pd
 import io
 from datetime import datetime
+import numpy as np # Added for np.select
 
 # Function to classify and extract ticket info
 def classify_and_extract(note, ticket_regex, sr_min_range, sr_max_range):
@@ -270,37 +271,57 @@ def test_calculate_team_status_summary():
 def calculate_srs_created_per_week(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calculates the number of SRs created per week from a DataFrame.
+    Now includes categorization by status.
 
     Args:
         df: DataFrame containing SR data with a 'Created On' column.
+            May optionally contain a 'Status' column.
 
     Returns:
-        A DataFrame with columns ['Year-Week', 'Number of SRs']
-        sorted by 'Year-Week'. Returns an empty DataFrame if 'Created On'
+        A DataFrame with columns ['Year-Week', 'StatusCategory', 'Number of SRs']
+        or ['Year-Week', 'Number of SRs'] if 'Status' column is not present.
+        Sorted appropriately. Returns an empty DataFrame if 'Created On'
         is missing or data cannot be processed.
     """
     if 'Created On' not in df.columns:
-        return pd.DataFrame(columns=['Year-Week', 'Number of SRs'])
+        return pd.DataFrame(columns=['Year-Week', 'Number of SRs']) # Or include StatusCategory if always desired
 
     processed_df = df.copy()
-    # Convert 'Created On' to datetime, handling potential errors by coercing them to NaT
     processed_df['Created On'] = pd.to_datetime(processed_df['Created On'], errors='coerce')
-
-    # Drop rows where 'Created On' could not be parsed
     processed_df.dropna(subset=['Created On'], inplace=True)
 
     if processed_df.empty:
-        return pd.DataFrame(columns=['Year-Week', 'Number of SRs'])
+        # Return empty dataframe with appropriate columns based on whether 'Status' was originally present
+        if 'Status' in df.columns:
+            return pd.DataFrame(columns=['Year-Week', 'StatusCategory', 'Number of SRs'])
+        else:
+            return pd.DataFrame(columns=['Year-Week', 'Number of SRs'])
 
-    # Extract year and week number (ISO week date)
-    # %G is ISO year, %V is ISO week number
     processed_df['Year-Week'] = processed_df['Created On'].dt.strftime('%G-W%V')
 
-    # Count SRs per week
-    srs_per_week = processed_df.groupby('Year-Week').size().reset_index(name='Number of SRs')
+    if 'Status' in processed_df.columns:
+        conditions = [
+            processed_df['Status'].str.lower().isin(['closed', 'cancelled']),
+            processed_df['Status'].notna() & ~processed_df['Status'].str.lower().isin(['closed', 'cancelled'])
+        ]
+        choices = ['Closed/Cancelled', 'New/Pending']
+        processed_df['StatusCategory'] = np.select(conditions, choices, default='New/Pending')
 
-    # Sort by Year-Week to ensure chronological order in the chart
-    srs_per_week = srs_per_week.sort_values(by='Year-Week').reset_index(drop=True)
+        # Handle cases where Status might be NaN but row is kept due to valid 'Created On'
+        # For these, if not explicitly Closed/Cancelled, they are New/Pending if Status is NaN.
+        # However, the above np.select should cover this: if notna() is false, it goes to default.
+        # If Status is NaN, str.lower() would error. So, fillna before str.lower().
+        processed_df['StatusCategory'] = np.select(
+            [processed_df['Status'].fillna('').str.lower().isin(['closed', 'cancelled'])],
+            ['Closed/Cancelled'],
+            default='New/Pending'
+        )
+
+        srs_per_week = processed_df.groupby(['Year-Week', 'StatusCategory']).size().reset_index(name='Number of SRs')
+        srs_per_week = srs_per_week.sort_values(by=['Year-Week', 'StatusCategory']).reset_index(drop=True)
+    else:
+        srs_per_week = processed_df.groupby('Year-Week').size().reset_index(name='Number of SRs')
+        srs_per_week = srs_per_week.sort_values(by='Year-Week').reset_index(drop=True)
 
     return srs_per_week
 
@@ -308,83 +329,124 @@ def test_calculate_srs_created_per_week():
     """Tests for the calculate_srs_created_per_week function."""
     print("Running test_calculate_srs_created_per_week...")
 
-    # 1. Basic functionality
+    # 1. Basic functionality (No Status column)
     data1 = {'Created On': pd.to_datetime(['2023-01-01', '2023-01-02', '2023-01-08', '2023-01-08'])}
     df1 = pd.DataFrame(data1)
     result1 = calculate_srs_created_per_week(df1)
     expected1_data = {'Year-Week': ['2022-W52', '2023-W01'], 'Number of SRs': [1, 3]}
     expected1 = pd.DataFrame(expected1_data)
     pd.testing.assert_frame_equal(result1, expected1)
-    print("  Test Case 1 (Basic functionality) Passed.")
+    print("  Test Case 1 (Basic functionality - No Status) Passed.")
 
     # 2. Missing 'Created On' column
-    df2 = pd.DataFrame({'SomeOtherColumn': [1, 2]})
+    df2 = pd.DataFrame({'SomeOtherColumn': [1, 2], 'Status': ['Open', 'Closed']})
     result2 = calculate_srs_created_per_week(df2)
-    expected2 = pd.DataFrame(columns=['Year-Week', 'Number of SRs'])
-    pd.testing.assert_frame_equal(result2, expected2)
+    # Expect empty with all potential columns if logic changes, or specific based on current return for missing Created On
+    expected2 = pd.DataFrame(columns=['Year-Week', 'Number of SRs']) # Current function returns this
+    pd.testing.assert_frame_equal(result2, expected2, check_dtype=False) # Allow different dtypes for empty
     print("  Test Case 2 (Missing 'Created On' column) Passed.")
 
-    # 3. Dates that cannot be parsed (some valid)
+    # 3. Dates that cannot be parsed (some valid, with Status)
     data3 = {'Created On': [
         pd.Timestamp('2023-01-01'),
         None,
         pd.Timestamp('2023-01-03'),
         'completely invalid date string',
         pd.Timestamp('2023-01-09 10:00:00')
-    ]}
+    ], 'Status': ['Open', 'New', 'Closed', 'Pending', 'Cancelled']}
     df3 = pd.DataFrame(data3)
     result3 = calculate_srs_created_per_week(df3)
-    expected3_data = {'Year-Week': ['2022-W52', '2023-W01', '2023-W02'], 'Number of SRs': [1, 1, 1]}
+    # Valid rows and their statuses:
+    # 2023-01-01 (2022-W52), Status 'Open' -> New/Pending
+    # 2023-01-03 (2023-W01), Status 'Closed' -> Closed/Cancelled
+    # 2023-01-09 (2023-W02), Status 'Cancelled' -> Closed/Cancelled
+    expected3_data = {
+        'Year-Week': ['2022-W52', '2023-W01', '2023-W02'],
+        'StatusCategory': ['New/Pending', 'Closed/Cancelled', 'Closed/Cancelled'],
+        'Number of SRs': [1, 1, 1]
+    }
     expected3 = pd.DataFrame(expected3_data)
     pd.testing.assert_frame_equal(result3, expected3)
-    print("  Test Case 3 (Some unparseable dates) Passed.")
+    print("  Test Case 3 (Some unparseable dates, with Status) Passed.")
 
-    # 4. All dates invalid
-    data4 = {'Created On': ['not a date', None, '']}
+    # 4. All dates invalid (with Status)
+    data4 = {'Created On': ['not a date', None, ''], 'Status': ['Open', 'New', 'Closed']}
     df4 = pd.DataFrame(data4)
     result4 = calculate_srs_created_per_week(df4)
-    expected4 = pd.DataFrame(columns=['Year-Week', 'Number of SRs'])
-    pd.testing.assert_frame_equal(result4, expected4)
-    print("  Test Case 4 (All dates invalid) Passed.")
+    expected4 = pd.DataFrame(columns=['Year-Week', 'StatusCategory', 'Number of SRs'])
+    pd.testing.assert_frame_equal(result4, expected4, check_dtype=False)
+    print("  Test Case 4 (All dates invalid, with Status) Passed.")
 
-    # 5. Empty input DataFrame
-    df5 = pd.DataFrame(columns=['Created On'])
+    # 5. Empty input DataFrame (with Status column defined)
+    df5 = pd.DataFrame(columns=['Created On', 'Status'])
     result5 = calculate_srs_created_per_week(df5)
-    expected5 = pd.DataFrame(columns=['Year-Week', 'Number of SRs'])
-    pd.testing.assert_frame_equal(result5, expected5)
-    print("  Test Case 5 (Empty input DataFrame) Passed.")
+    expected5 = pd.DataFrame(columns=['Year-Week', 'StatusCategory', 'Number of SRs'])
+    pd.testing.assert_frame_equal(result5, expected5, check_dtype=False)
+    print("  Test Case 5 (Empty input DataFrame, with Status) Passed.")
 
-    # 6. Correct sorting (weeks not in order in input)
-    data6 = {'Created On': pd.to_datetime(['2023-01-15', '2023-01-01', '2023-01-08'])}
+    # 6. Correct sorting (with Status)
+    data6 = {
+        'Created On': pd.to_datetime(['2023-01-15', '2023-01-01', '2023-01-08', '2023-01-01']),
+        'Status': ['Closed', 'Open', 'Pending', 'Cancelled']
+    }
+    # 2023-01-15 (Sun, W02) -> Closed -> Closed/Cancelled
+    # 2023-01-01 (Sun, W52 2022) -> Open -> New/Pending
+    # 2023-01-08 (Sun, W01 2023) -> Pending -> New/Pending
+    # 2023-01-01 (Sun, W52 2022) -> Cancelled -> Closed/Cancelled
     df6 = pd.DataFrame(data6)
     result6 = calculate_srs_created_per_week(df6)
-    expected6_data = {'Year-Week': ['2022-W52', '2023-W01', '2023-W02'], 'Number of SRs': [1, 1, 1]}
-    expected6 = pd.DataFrame(expected6_data)
+    expected6_data = {
+        'Year-Week':    ['2022-W52',        '2022-W52',         '2023-W01',    '2023-W02'],
+        'StatusCategory': ['Closed/Cancelled','New/Pending',    'New/Pending', 'Closed/Cancelled'],
+        'Number of SRs': [1,                 1,                  1,             1]
+    }
+    expected6 = pd.DataFrame(expected6_data).sort_values(by=['Year-Week', 'StatusCategory']).reset_index(drop=True)
     pd.testing.assert_frame_equal(result6, expected6)
-    print("  Test Case 6 (Correct sorting) Passed.")
+    print("  Test Case 6 (Correct sorting, with Status) Passed.")
 
-    # 7. Different date/time formats (pandas should handle)
-    # Using ISO strings to avoid pd.to_datetime parsing issues in test setup
+    # 7. Different date/time formats and mixed status cases (including NaN status)
     data7 = {'Created On': [
-        '2024-01-01T00:00:00',  # 2024-W01
-        '2025-07-05T07:33:00',  # 2025-W27 (July 5th)
-        '2025-07-06T08:00:00'   # 2025-W27 (July 6th)
-    ]}
+        '2024-01-01T00:00:00',
+        '2025-07-05T07:33:00',
+        '2025-07-06T08:00:00',
+        '2024-01-02T10:00:00', # 2024-W01
+        '2024-01-03T11:00:00'  # 2024-W01
+    ], 'Status': ['new', 'CLOSED', 'CaNcElLeD', pd.NA, 'Active']} # pd.NA for NaN status
     df7 = pd.DataFrame(data7)
     result7 = calculate_srs_created_per_week(df7)
-    expected7_data = {'Year-Week': ['2024-W01', '2025-W27'], 'Number of SRs': [1, 2]}
+    # 2024-W01: 'new' -> New/Pending (1)
+    #           pd.NA -> New/Pending (1)
+    #           'Active' -> New/Pending (1)
+    # 2025-W27: 'CLOSED' -> Closed/Cancelled (1)
+    #           'CaNcElLeD' -> Closed/Cancelled (1)
+    expected7_data = {
+        'Year-Week':    ['2024-W01',    '2025-W27'],
+        'StatusCategory': ['New/Pending', 'Closed/Cancelled'],
+        'Number of SRs': [3,             2]
+    }
     expected7 = pd.DataFrame(expected7_data)
     pd.testing.assert_frame_equal(result7, expected7)
-    print("  Test Case 7 (Different date formats including user example) Passed.")
+    print("  Test Case 7 (Mixed formats, statuses, NaN status) Passed.")
 
-    # 8. Year boundary (ISO week)
-    data8 = {'Created On': pd.to_datetime(['2023-12-31', '2024-01-01', '2024-12-29', '2024-12-30', '2025-01-01'])}
+    # 8. Year boundary (ISO week, with Status)
+    data8 = {
+        'Created On': pd.to_datetime(['2023-12-31', '2024-01-01', '2024-12-29', '2024-12-30', '2025-01-01']),
+        'Status': ['Open', 'Closed', 'Cancelled', 'Pending', 'New']
+    }
+    # 2023-W52: Open -> New/Pending (1)
+    # 2024-W01: Closed -> Closed/Cancelled (1)
+    # 2024-W52: Cancelled -> Closed/Cancelled (1)
+    # 2025-W01: Pending -> New/Pending (1), New -> New/Pending (1)
     df8 = pd.DataFrame(data8)
     result8 = calculate_srs_created_per_week(df8)
-    expected8_data = {'Year-Week': ['2023-W52', '2024-W01', '2024-W52', '2025-W01'], 'Number of SRs': [1, 1, 1, 2]}
+    expected8_data = {
+        'Year-Week':    ['2023-W52',    '2024-W01',         '2024-W52',         '2025-W01'],
+        'StatusCategory': ['New/Pending', 'Closed/Cancelled', 'Closed/Cancelled', 'New/Pending'],
+        'Number of SRs': [1,             1,                  1,                  2]
+    }
     expected8 = pd.DataFrame(expected8_data)
     pd.testing.assert_frame_equal(result8, expected8)
-    print("  Test Case 8 (Year boundary ISO week) Passed.")
+    print("  Test Case 8 (Year boundary ISO week, with Status) Passed.")
 
     print("All test_calculate_srs_created_per_week tests passed.")
 
