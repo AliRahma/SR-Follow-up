@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pytz
 from streamlit_option_menu import option_menu
 import plotly.express as px
-from utils import calculate_team_status_summary, calculate_srs_created_per_week
+from utils import calculate_team_status_summary, calculate_srs_created_per_week, _get_week_display_str # Added _get_week_display_str
 
 # Set page configuration
 st.set_page_config(
@@ -2028,72 +2028,92 @@ else:
                 # --- Closed SRs Table ---
                 st.subheader("Closed Service Requests")
 
-                if 'Status' not in sr_overview_df.columns:
-                    st.warning("The uploaded SR data does not contain a 'Status' column, so Closed SRs cannot be displayed.")
-                elif 'Created On' not in sr_overview_df.columns: # Also check for 'Created On' as it's essential for filters
-                    st.warning("The uploaded SR data does not contain a 'Created On' column, which is required for date filters in the Closed SRs table.")
+                # Essential columns for this section
+                essential_cols_closed_sr = ['Status', 'LastModDateTime']
+                missing_essential_cols = [col for col in essential_cols_closed_sr if col not in sr_overview_df.columns]
+
+                if missing_essential_cols:
+                    st.warning(f"The uploaded SR data is missing the following essential column(s) for the Closed SRs table: {', '.join(missing_essential_cols)}. This table cannot be displayed.")
                 else:
                     closed_sr_statuses = ["closed", "completed", "cancelled", "approval rejected", "rejected by ps"]
-                    # Use the original sr_overview_df for closed SRs
+                    # Filter SRs that have one of the closed statuses
                     closed_srs_df = sr_overview_df[
                         sr_overview_df['Status'].astype(str).str.lower().str.strip().isin(closed_sr_statuses)
-                    ].copy() # Create a copy to avoid SettingWithCopyWarning
+                    ].copy()
 
-                    # Add 'Year-Week' for filtering, similar to the above table
-                    # This check is now somewhat redundant due to the outer else, but kept for safety within this block
-                    if 'Created On' in closed_srs_df.columns: # This is line 2044
-                        closed_srs_df['Created On'] = pd.to_datetime(closed_srs_df['Created On'], errors='coerce') # Indented
-                        closed_srs_df.dropna(subset=['Created On'], inplace=True) # Indented
-                        if not closed_srs_df.empty: # Indented
-                            closed_srs_df['Year-Week'] = closed_srs_df['Created On'].dt.strftime('%G-W%V') # Indented
-                    # No 'else' needed here as the outer structure handles missing 'Created On' by not entering this block.
-                    # If closed_srs_df is empty or 'Created On' was missing, 'Year-Week' might not be added,
-                    # but downstream filter logic should handle an empty or non-existent 'Year-Week' column gracefully,
-                    # especially since week_options_for_multiselect is based on the broader sr_overview_df.
+                    # Convert LastModDateTime to datetime and generate 'Closure-Year-Week'
+                    closed_srs_df['LastModDateTime'] = pd.to_datetime(closed_srs_df['LastModDateTime'], errors='coerce', dayfirst=True, infer_datetime_format=True)
+                    closed_srs_df.dropna(subset=['LastModDateTime'], inplace=True) # Remove rows where LastModDateTime couldn't be parsed
 
-                # Filters for Closed SRs table (Week Period and Specific Day)
-                # These filters will be independent of the filters for the "Filterable SR Data" table above.
-                # Use the same week_options_for_multiselect and week_map_for_filter from earlier in the SR Overview tab.
+                    if not closed_srs_df.empty:
+                        closed_srs_df['Closure-Year-Week'] = closed_srs_df['LastModDateTime'].dt.strftime('%G-W%V')
+                    else:
+                        # Ensure the column exists even if empty, for consistency in later steps
+                        closed_srs_df['Closure-Year-Week'] = pd.Series(dtype='str')
 
-                col_filter_closed_sr1, col_filter_closed_sr2 = st.columns(2)
 
-                with col_filter_closed_sr1:
-                    selected_week_displays_closed = st.multiselect(
-                        "Filter Closed SRs by Week Period:",
-                        options=week_options_for_multiselect, # Re-use options from above
-                        default=[],
-                        key="closed_sr_week_filter"
-                    )
+                    # Prepare week filter options based on LastModDateTime of closed SRs
+                    # This is different from the main week_options_for_multiselect which is based on Created On of all SRs
+                    closed_sr_week_map_for_filter = {}
+                    closed_sr_week_options_for_multiselect = []
+                    if not closed_srs_df.empty and 'Closure-Year-Week' in closed_srs_df.columns:
+                        unique_closed_week_options_df = closed_srs_df[['Closure-Year-Week']].copy()
+                        unique_closed_week_options_df.dropna(subset=['Closure-Year-Week'], inplace=True)
+                        # Apply the _get_week_display_str helper to the 'Closure-Year-Week'
+                        # Ensure _get_week_display_str is available or define it if it's moved/not imported
+                        # For now, assuming _get_week_display_str is accessible
+                        unique_closed_week_options_df['WeekDisplay'] = unique_closed_week_options_df['Closure-Year-Week'].apply(_get_week_display_str)
+                        unique_closed_week_options_df = unique_closed_week_options_df[['Closure-Year-Week', 'WeekDisplay']].drop_duplicates().sort_values(by='Closure-Year-Week')
 
-                with col_filter_closed_sr2:
-                    min_date_val_closed = closed_srs_df['Created On'].min().date() if not closed_srs_df.empty and 'Created On' in closed_srs_df.columns and not closed_srs_df['Created On'].dropna().empty else None
-                    max_date_val_closed = closed_srs_df['Created On'].max().date() if not closed_srs_df.empty and 'Created On' in closed_srs_df.columns and not closed_srs_df['Created On'].dropna().empty else None
-                    selected_day_closed = st.date_input(
-                        "Filter Closed SRs by Specific Day (Created On):",
-                        value=None,
-                        min_value=min_date_val_closed,
-                        max_value=max_date_val_closed,
-                        key="closed_sr_day_filter"
-                    )
+                        closed_sr_week_options_for_multiselect = unique_closed_week_options_df['WeekDisplay'].tolist()
+                        for _, row in unique_closed_week_options_df.iterrows():
+                            closed_sr_week_map_for_filter[row['WeekDisplay']] = row['Closure-Year-Week']
 
-                # Apply filters to closed_srs_df
-                filtered_closed_srs_df = closed_srs_df.copy() # Start with all closed SRs
 
-                if selected_day_closed:
-                    if 'Created On' in filtered_closed_srs_df.columns:
-                        filtered_closed_srs_df = filtered_closed_srs_df[filtered_closed_srs_df['Created On'].dt.date == selected_day_closed]
-                elif selected_week_displays_closed:
-                    if 'Year-Week' in filtered_closed_srs_df.columns and week_map_for_filter:
-                        selected_year_weeks_closed_short = [week_map_for_filter[wd] for wd in selected_week_displays_closed if wd in week_map_for_filter]
-                        if selected_year_weeks_closed_short:
-                            filtered_closed_srs_df = filtered_closed_srs_df[filtered_closed_srs_df['Year-Week'].isin(selected_year_weeks_closed_short)]
+                    col_filter_closed_sr1, col_filter_closed_sr2 = st.columns(2)
 
-                st.markdown(f"**Total Displayed Closed SRs:** {len(filtered_closed_srs_df)}")
+                    with col_filter_closed_sr1:
+                        selected_week_displays_closed = st.multiselect(
+                            "Filter Closed SRs by Closure Week Period:",
+                            options=closed_sr_week_options_for_multiselect,
+                            default=[],
+                            key="closed_sr_closure_week_filter"
+                        )
 
-                if not filtered_closed_srs_df.empty:
+                    with col_filter_closed_sr2:
+                        min_date_val_closed = closed_srs_df['LastModDateTime'].min().date() if not closed_srs_df.empty and not closed_srs_df['LastModDateTime'].dropna().empty else None
+                        max_date_val_closed = closed_srs_df['LastModDateTime'].max().date() if not closed_srs_df.empty and not closed_srs_df['LastModDateTime'].dropna().empty else None
+                        selected_day_closed = st.date_input(
+                            "Filter Closed SRs by Specific Closure Day:",
+                            value=None,
+                            min_value=min_date_val_closed,
+                            max_value=max_date_val_closed,
+                            key="closed_sr_closure_day_filter"
+                        )
+
+                    # Apply filters to closed_srs_df
+                    filtered_closed_srs_df = closed_srs_df.copy()
+
+                    if selected_day_closed:
+                        # Ensure LastModDateTime is date part for comparison
+                        filtered_closed_srs_df = filtered_closed_srs_df[filtered_closed_srs_df['LastModDateTime'].dt.date == selected_day_closed]
+                    elif selected_week_displays_closed:
+                        if 'Closure-Year-Week' in filtered_closed_srs_df.columns and closed_sr_week_map_for_filter:
+                            selected_closure_year_weeks_short = [closed_sr_week_map_for_filter[wd] for wd in selected_week_displays_closed if wd in closed_sr_week_map_for_filter]
+                            if selected_closure_year_weeks_short:
+                                filtered_closed_srs_df = filtered_closed_srs_df[filtered_closed_srs_df['Closure-Year-Week'].isin(selected_closure_year_weeks_short)]
+
+                    st.markdown(f"**Total Displayed Closed SRs (filtered by closure date):** {len(filtered_closed_srs_df)}")
+
+                    if not filtered_closed_srs_df.empty:
                     all_closed_columns = filtered_closed_srs_df.columns.tolist()
-                    if 'Year-Week' in all_closed_columns: # Internal column, remove from selection
-                        all_closed_columns.remove('Year-Week')
+                    # Remove internal helper columns from user selection options
+                    # 'Closure-Year-Week' is the one specifically created for this table's filtering.
+                    # 'Year-Week' might exist if it was in the original sr_overview_df from created_on processing.
+                    internal_cols_to_remove = ['Closure-Year-Week', 'Year-Week']
+                    for col_to_remove in internal_cols_to_remove:
+                        if col_to_remove in all_closed_columns:
+                            all_closed_columns.remove(col_to_remove)
 
                     default_closed_cols = ['Service Request', 'Status', 'Created On', 'LastModDateTime', 'Resolution'] # Example, adjust as needed
                     sanitized_default_closed_cols = [col for col in default_closed_cols if col in all_closed_columns]
