@@ -2105,48 +2105,51 @@ else:
 
                     st.markdown(f"**Total Displayed Closed SRs (filtered by closure date):** {len(filtered_closed_srs_df)}")
 
-                    if not filtered_closed_srs_df.empty:
-                    all_closed_columns = filtered_closed_srs_df.columns.tolist()
-                    # Remove internal helper columns from user selection options
-                    # 'Closure-Year-Week' is the one specifically created for this table's filtering.
-                    # 'Year-Week' might exist if it was in the original sr_overview_df from created_on processing.
-                    internal_cols_to_remove = ['Closure-Year-Week', 'Year-Week']
-                    for col_to_remove in internal_cols_to_remove:
-                        if col_to_remove in all_closed_columns:
-                            all_closed_columns.remove(col_to_remove)
+                    if not filtered_closed_srs_df.empty: # This is line 2108 approx.
+                        all_closed_columns = filtered_closed_srs_df.columns.tolist() # Line 2109 - Start of block to indent
+                        # Remove internal helper columns from user selection options
+                        # 'Closure-Year-Week' is the one specifically created for this table's filtering.
+                        # 'Year-Week' might exist if it was in the original sr_overview_df from created_on processing.
+                        internal_cols_to_remove = ['Closure-Year-Week', 'Year-Week']
+                        for col_to_remove in internal_cols_to_remove:
+                            if col_to_remove in all_closed_columns:
+                                all_closed_columns.remove(col_to_remove)
 
-                    default_closed_cols = ['Service Request', 'Status', 'Created On', 'LastModDateTime', 'Resolution'] # Example, adjust as needed
-                    sanitized_default_closed_cols = [col for col in default_closed_cols if col in all_closed_columns]
+                        default_closed_cols = ['Service Request', 'Status', 'Created On', 'LastModDateTime', 'Resolution'] # Example, adjust as needed
+                        sanitized_default_closed_cols = [col for col in default_closed_cols if col in all_closed_columns]
 
-                    if 'closed_sr_data_cols_multiselect' not in st.session_state:
-                        st.session_state.closed_sr_data_cols_multiselect = sanitized_default_closed_cols
+                        if 'closed_sr_data_cols_multiselect' not in st.session_state:
+                            st.session_state.closed_sr_data_cols_multiselect = sanitized_default_closed_cols
 
-                    selected_closed_columns = st.multiselect(
-                        "Select columns to display for Closed SRs:",
-                        options=all_closed_columns,
-                        default=st.session_state.closed_sr_data_cols_multiselect,
-                        key="multiselect_closed_sr_data"
-                    )
-                    st.session_state.closed_sr_data_cols_multiselect = selected_closed_columns
+                        selected_closed_columns = st.multiselect(
+                            "Select columns to display for Closed SRs:",
+                            options=all_closed_columns,
+                            default=st.session_state.closed_sr_data_cols_multiselect,
+                            key="multiselect_closed_sr_data"
+                        )
+                        st.session_state.closed_sr_data_cols_multiselect = selected_closed_columns
 
-                    if selected_closed_columns:
-                        st.dataframe(filtered_closed_srs_df[selected_closed_columns], hide_index=True)
+                        if selected_closed_columns:
+                            st.dataframe(filtered_closed_srs_df[selected_closed_columns], hide_index=True)
+                        else:
+                            # Show all available (minus internal Year-Week) if no columns selected but data exists
+                            # Ensure we use the correct list of all_closed_columns (which has helpers removed)
+                            st.dataframe(filtered_closed_srs_df[all_closed_columns] if all_closed_columns else filtered_closed_srs_df, hide_index=True)
+
+                        # Download button for Closed SRs
+                        # Ensure download uses the correct set of columns (selected or all available for display)
+                        cols_for_download = selected_closed_columns if selected_closed_columns else all_closed_columns
+                        excel_closed_sr_data = generate_excel_download(filtered_closed_srs_df[cols_for_download] if cols_for_download else filtered_closed_srs_df)
+                        st.download_button(
+                            label="📥 Download Closed SRs Data",
+                            data=excel_closed_sr_data,
+                            file_name=f"closed_srs_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key="download_closed_srs"
+                        )
+                    # This else corresponds to 'if not filtered_closed_srs_df.empty:'
                     else:
-                        # Show all available (minus internal Year-Week) if no columns selected but data exists
-                        st.dataframe(filtered_closed_srs_df[[col for col in all_closed_columns if col != 'Year-Week']] if 'Year-Week' in all_closed_columns else filtered_closed_srs_df, hide_index=True)
-
-                    # Download button for Closed SRs
-                    excel_closed_sr_data = generate_excel_download(filtered_closed_srs_df[selected_closed_columns if selected_closed_columns else all_closed_columns])
-                    st.download_button(
-                        label="📥 Download Closed SRs Data",
-                        data=excel_closed_sr_data,
-                        file_name=f"closed_srs_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="download_closed_srs"
-                    )
-
-                else:
-                    st.info("No Closed SR data to display based on current filters.")
+                        st.info("No Closed SR data to display based on current filters.")
 
 
 st.markdown("---")
