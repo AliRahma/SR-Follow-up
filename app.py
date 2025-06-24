@@ -1925,7 +1925,7 @@ else:
                             closed_df,
                             x=chart_x_axis,
                             y='Count',
-                            title="Service Requests Closed Per Week ("closed","completed", "cancelled", "approval rejected", "rejected by ps")",
+                            title="Service Requests Closed Per Week: SR Status (Closed,Completed, Cancelled, Approval rejected, Rejected by ps)",
                             labels={'Count': 'Number of SRs Closed', chart_x_axis: 'Week Period'},
                             color_discrete_sequence=px.colors.qualitative.Plotly # Optional: pick a different color if desired e.g., px.colors.qualitative.Plotly[1:]
                         )
