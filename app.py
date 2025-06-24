@@ -1912,8 +1912,10 @@ else:
                             y='Count',
                             title="Service Requests Created Per Week",
                             labels={'Count': 'Number of SRs Created', chart_x_axis: 'Week Period'},
-                            color_discrete_sequence=px.colors.qualitative.Plotly # Optional: for a consistent color
+                            color_discrete_sequence=px.colors.qualitative.Plotly, # Optional: for a consistent color
+                            text='Count' # Add text to display on bars
                         )
+                        fig_created.update_traces(texttemplate='%{text}', textposition='outside') # Show text outside bars
                         fig_created.update_layout(xaxis_title='Week Period', yaxis_title="Number of SRs Created")
                         st.plotly_chart(fig_created, use_container_width=True)
                     else:
@@ -1927,8 +1929,10 @@ else:
                             y='Count',
                             title="Service Requests Closed Per Week: SR Status (Closed,Completed, Cancelled, Approval rejected, Rejected by ps)",
                             labels={'Count': 'Number of SRs Closed', chart_x_axis: 'Week Period'},
-                            color_discrete_sequence=px.colors.qualitative.Plotly # Optional: pick a different color if desired e.g., px.colors.qualitative.Plotly[1:]
+                            color_discrete_sequence=px.colors.qualitative.Plotly, # Optional: pick a different color if desired e.g., px.colors.qualitative.Plotly[1:]
+                            text='Count' # Add text to display on bars
                         )
+                        fig_closed.update_traces(texttemplate='%{text}', textposition='outside') # Show text outside bars
                         fig_closed.update_layout(xaxis_title='Week Period', yaxis_title="Number of SRs Closed")
                         st.plotly_chart(fig_closed, use_container_width=True)
                     else:
