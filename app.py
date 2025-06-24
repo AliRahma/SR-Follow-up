@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pytz
 from streamlit_option_menu import option_menu
 import plotly.express as px
-from utils import calculate_team_status_summary
+from utils import calculate_team_status_summary, calculate_srs_created_per_week
 
 # Set page configuration
 st.set_page_config(
@@ -596,8 +596,8 @@ else:
     # Prepare tab interface
     selected = option_menu(
         menu_title=None,
-        options=["Analysis", "SLA Breach", "Today's SR/Incidents", "Incident Overview"],
-        icons=["kanban", "exclamation-triangle", "calendar-date", "clipboard-data"],
+        options=["Analysis", "SLA Breach", "Today's SR/Incidents", "Incident Overview", "SR Overview"],
+        icons=["kanban", "exclamation-triangle", "calendar-date", "clipboard-data", "bar-chart-line"],
         menu_icon="cast",
         default_index=0,
         orientation="horizontal",
@@ -1850,6 +1850,45 @@ else:
                 st.warning(f"Cannot display High-Priority Incidents table: Missing essential columns: {', '.join(missing_cols_for_high_priority_table)}.")
         else:
             st.info("No data available to display for High-Priority Incidents based on current filters.")
+
+    #
+    # SR OVERVIEW TAB
+    #
+    elif selected == "SR Overview":
+        st.title("📊 Service Request (SR) Overview")
+
+        if 'sr_df' not in st.session_state or st.session_state.sr_df is None or st.session_state.sr_df.empty:
+            st.warning(
+                "The 'SR Status Excel' has not been uploaded or is empty. "
+                "Please upload the SR status file via the sidebar to view the SR Overview."
+            )
+        else:
+            sr_overview_df = st.session_state.sr_df.copy()
+            st.markdown(f"**Total SRs Loaded:** {len(sr_overview_df)}")
+
+            if 'Created On' not in sr_overview_df.columns:
+                st.error("The SR data must contain a 'Created On' column to generate the weekly overview.")
+            else:
+                srs_weekly_df = calculate_srs_created_per_week(sr_overview_df)
+
+                if srs_weekly_df.empty:
+                    st.info("No valid 'Created On' dates found to generate the weekly SRs chart, or all dates were invalid.")
+                else:
+                    st.subheader("SRs Created Per Week")
+                    fig = px.bar(
+                        srs_weekly_df,
+                        x='Year-Week',
+                        y='Number of SRs',
+                        title="Service Requests Created Per Week",
+                        labels={'Year-Week': 'Week', 'Number of SRs': 'Number of SRs Created'}
+                    )
+                    fig.update_layout(xaxis_title="Week", yaxis_title="Number of SRs Created")
+                    st.plotly_chart(fig, use_container_width=True)
+
+                # Optional: Display raw data in an expander
+                with st.expander("View Raw SR Data"):
+                    st.dataframe(sr_overview_df)
+
 
 st.markdown("---")
 st.markdown(
