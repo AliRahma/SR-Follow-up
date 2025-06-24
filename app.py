@@ -1928,7 +1928,28 @@ else:
                 elif selected_weeks: # Apply week filter only if day is not selected
                     display_df = display_df[display_df['Year-Week'].isin(selected_weeks)]
 
-                st.dataframe(display_df)
+                # Display total row count
+                st.markdown(f"**Total Displayed SRs:** {len(display_df)}")
+
+                # Column selector
+                if not display_df.empty:
+                    all_columns = display_df.columns.tolist()
+                    default_cols = ['Service Request', 'Status', 'Created On']
+                    # Ensure default columns exist in the dataframe
+                    sanitized_default_cols = [col for col in default_cols if col in all_columns]
+
+                    selected_columns = st.multiselect(
+                        "Select columns to display:",
+                        options=all_columns,
+                        default=sanitized_default_cols
+                    )
+
+                    if selected_columns:
+                        st.dataframe(display_df[selected_columns])
+                    else: # If no columns selected, show all or a message
+                        st.dataframe(display_df) # Default to showing all if nothing selected
+                else:
+                    st.info("No SR data to display based on current filters.")
 
 
 st.markdown("---")
