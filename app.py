@@ -1875,19 +1875,60 @@ else:
                     st.info("No valid 'Created On' dates found to generate the weekly SRs chart, or all dates were invalid.")
                 else:
                     st.subheader("SRs Created Per Week")
-                    fig = px.bar(
-                        srs_weekly_df,
-                        x='Year-Week',
-                        y='Number of SRs',
-                        title="Service Requests Created Per Week",
-                        labels={'Year-Week': 'Week', 'Number of SRs': 'Number of SRs Created'}
-                    )
+                    if 'StatusCategory' in srs_weekly_df.columns:
+                        fig = px.bar(
+                            srs_weekly_df,
+                            x='Year-Week',
+                            y='Number of SRs',
+                            color='StatusCategory',
+                            title="Service Requests Created Per Week by Status",
+                            labels={'Year-Week': 'Week', 'Number of SRs': 'Number of SRs Created', 'StatusCategory': 'Status Category'},
+                            barmode='group'
+                        )
+                    else: # Fallback to simple chart if no status category
+                        fig = px.bar(
+                            srs_weekly_df,
+                            x='Year-Week',
+                            y='Number of SRs',
+                            title="Total Service Requests Created Per Week",
+                            labels={'Year-Week': 'Week', 'Number of SRs': 'Number of SRs Created'}
+                        )
                     fig.update_layout(xaxis_title="Week", yaxis_title="Number of SRs Created")
                     st.plotly_chart(fig, use_container_width=True)
 
-                # Optional: Display raw data in an expander
-                with st.expander("View Raw SR Data"):
-                    st.dataframe(sr_overview_df)
+                st.markdown("---")
+                st.subheader("Filterable SR Data")
+
+                # Prepare data for filtering
+                display_df = sr_overview_df.copy()
+                if 'Created On' in display_df.columns:
+                    display_df['Created On'] = pd.to_datetime(display_df['Created On'], errors='coerce')
+                    display_df.dropna(subset=['Created On'], inplace=True) # Ensure only valid dates for filtering
+                    display_df['Year-Week'] = display_df['Created On'].dt.strftime('%G-W%V')
+                    unique_weeks = sorted(display_df['Year-Week'].unique().tolist())
+                else:
+                    unique_weeks = []
+
+                col_filter1, col_filter2 = st.columns(2)
+
+                with col_filter1:
+                    selected_weeks = st.multiselect(
+                        "Filter by Year-Week:",
+                        options=unique_weeks,
+                        default=[]
+                    )
+
+                with col_filter2:
+                    selected_day = st.date_input("Filter by Specific Day (Created On):", value=None, min_value=display_df['Created On'].min() if not display_df.empty and 'Created On' in display_df else None, max_value=display_df['Created On'].max() if not display_df.empty and 'Created On' in display_df else None)
+
+                # Apply filters
+                if selected_day: # Specific day filter takes precedence
+                    # Convert selected_day (datetime.date) to datetime.datetime for comparison if needed, or compare dates directly
+                    display_df = display_df[display_df['Created On'].dt.date == selected_day]
+                elif selected_weeks: # Apply week filter only if day is not selected
+                    display_df = display_df[display_df['Year-Week'].isin(selected_weeks)]
+
+                st.dataframe(display_df)
 
 
 st.markdown("---")
