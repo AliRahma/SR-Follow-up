@@ -490,9 +490,211 @@ def test_calculate_srs_created_per_week():
     print("  Test Case 8 (Year boundary ISO week, with Status) Passed.")
 
     print("All test_calculate_srs_created_per_week tests passed.")
+def calculate_srs_created_and_closed_per_week(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates the number of SRs created and closed per week from a DataFrame.
+
+    Args:
+        df: DataFrame containing SR data with 'Created On', 'LastModDateTime', and 'Status' columns.
+
+    Returns:
+        A DataFrame with columns ['Year-Week', 'WeekDisplay', 'Count', 'Category']
+        where 'Category' is 'Created' or 'Closed'.
+        Sorted appropriately. Returns an empty DataFrame if essential columns
+        are missing or data cannot be processed.
+    """
+    required_cols = ['Created On', 'LastModDateTime', 'Status']
+    if not all(col in df.columns for col in required_cols):
+        return pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'Count', 'Category'])
+
+    # --- SRs Created ---
+    df_created = df.copy()
+    df_created['Created On'] = pd.to_datetime(df_created['Created On'], errors='coerce')
+    df_created.dropna(subset=['Created On'], inplace=True)
+
+    if df_created.empty:
+        srs_created_weekly = pd.DataFrame(columns=['Year-Week', 'Count'])
+    else:
+        df_created['Year-Week'] = df_created['Created On'].dt.strftime('%G-W%V')
+        srs_created_weekly = df_created.groupby('Year-Week').size().reset_index(name='Count')
+    
+    srs_created_weekly['Category'] = 'Created'
+
+    # --- SRs Closed ---
+    df_closed = df.copy()
+    closed_statuses = ["Closed", "Cancelled", "Approval Rejected", "Rejected by PS"]
+    df_closed = df_closed[df_closed['Status'].isin(closed_statuses)]
+    
+    df_closed['LastModDateTime'] = pd.to_datetime(df_closed['LastModDateTime'], errors='coerce')
+    df_closed.dropna(subset=['LastModDateTime'], inplace=True)
+
+    if df_closed.empty:
+        srs_closed_weekly = pd.DataFrame(columns=['Year-Week', 'Count'])
+    else:
+        df_closed['Year-Week'] = df_closed['LastModDateTime'].dt.strftime('%G-W%V')
+        srs_closed_weekly = df_closed.groupby('Year-Week').size().reset_index(name='Count')
+        
+    srs_closed_weekly['Category'] = 'Closed'
+
+    # --- Combine and add WeekDisplay ---
+    combined_df = pd.concat([srs_created_weekly, srs_closed_weekly], ignore_index=True)
+
+    if combined_df.empty:
+        return pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'Count', 'Category'])
+
+    # Add WeekDisplay column
+    # Ensure 'Year-Week' column exists before applying _get_week_display_str
+    if 'Year-Week' in combined_df.columns:
+        combined_df['WeekDisplay'] = combined_df['Year-Week'].apply(_get_week_display_str)
+    else: # Should not happen if srs_created_weekly or srs_closed_weekly had data
+        combined_df['WeekDisplay'] = pd.Series(dtype='str')
+
+
+    # Sorting and final column order
+    combined_df = combined_df.sort_values(by=['Year-Week', 'Category']).reset_index(drop=True)
+    
+    final_columns = ['Year-Week', 'WeekDisplay', 'Count', 'Category']
+    # Filter to only include columns that actually exist, in the desired order
+    combined_df = combined_df[[col for col in final_columns if col in combined_df.columns]]
+
+    return combined_df
+
+
+def test_calculate_srs_created_and_closed_per_week():
+    """Tests for the calculate_srs_created_and_closed_per_week function."""
+    print("Running test_calculate_srs_created_and_closed_per_week...")
+
+    # Test Case 1: Basic scenario with created and closed SRs
+    data1 = {
+        'Created On': pd.to_datetime(['2023-01-01', '2023-01-02', '2023-01-08', '2023-01-09']),
+        'LastModDateTime': pd.to_datetime([None, '2023-01-03', '2023-01-10', '2023-01-10']),
+        'Status': ['Open', 'Closed', 'Cancelled', 'Rejected by PS']
+    }
+    df1 = pd.DataFrame(data1)
+    result1 = calculate_srs_created_and_closed_per_week(df1)
+    expected1_data = {
+        'Year-Week': ['2022-W52', '2023-W01', '2023-W01', '2023-W02', '2023-W02'],
+        'WeekDisplay': [
+            _get_week_display_str('2022-W52'),  # SR created on Jan 1st
+            _get_week_display_str('2023-W01'),  # SR created on Jan 2nd
+            _get_week_display_str('2023-W01'),  # SR closed on Jan 3rd
+            _get_week_display_str('2023-W02'),  # SR created on Jan 8th
+            _get_week_display_str('2023-W02'),  # SR created on Jan 9th
+        ],
+        'Count': [1, 1, 1, 2, 2], # Corrected: 1 created in W52, 1 created W01, 1 closed W01, 2 created W02, 2 closed W02
+        'Category': ['Created', 'Created', 'Closed', 'Created', 'Closed']
+    }
+    # Rebuild expected1_data based on how the function aggregates
+    # Created: 2022-W52 (1), 2023-W01 (1), 2023-W02 (2)
+    # Closed: 2023-W01 (1), 2023-W02 (2) (Cancelled and Rejected by PS on Jan 10)
+    
+    expected1_df_data = [
+        {'Year-Week': '2022-W52', 'WeekDisplay': _get_week_display_str('2022-W52'), 'Count': 1, 'Category': 'Created'},
+        {'Year-Week': '2023-W01', 'WeekDisplay': _get_week_display_str('2023-W01'), 'Count': 1, 'Category': 'Created'},
+        {'Year-Week': '2023-W01', 'WeekDisplay': _get_week_display_str('2023-W01'), 'Count': 1, 'Category': 'Closed'},
+        {'Year-Week': '2023-W02', 'WeekDisplay': _get_week_display_str('2023-W02'), 'Count': 2, 'Category': 'Created'},
+        {'Year-Week': '2023-W02', 'WeekDisplay': _get_week_display_str('2023-W02'), 'Count': 2, 'Category': 'Closed'},
+    ]
+    expected1 = pd.DataFrame(expected1_df_data)
+    expected1 = expected1.sort_values(by=['Year-Week', 'Category']).reset_index(drop=True)
+    pd.testing.assert_frame_equal(result1, expected1, check_like=True)
+    print("  Test Case 1 (Basic scenario) Passed.")
+
+    # Test Case 2: Missing required columns
+    df2 = pd.DataFrame({'Created On': [pd.to_datetime('2023-01-01')]})
+    result2 = calculate_srs_created_and_closed_per_week(df2)
+    expected2 = pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'Count', 'Category'])
+    pd.testing.assert_frame_equal(result2, expected2, check_dtype=False)
+    print("  Test Case 2 (Missing required columns) Passed.")
+
+    # Test Case 3: No data results in empty dataframe
+    df3 = pd.DataFrame(columns=['Created On', 'LastModDateTime', 'Status'])
+    result3 = calculate_srs_created_and_closed_per_week(df3)
+    expected3 = pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'Count', 'Category'])
+    pd.testing.assert_frame_equal(result3, expected3, check_dtype=False)
+    print("  Test Case 3 (No data) Passed.")
+
+    # Test Case 4: Only created SRs, no closed SRs
+    data4 = {
+        'Created On': pd.to_datetime(['2023-03-01', '2023-03-02']),
+        'LastModDateTime': [None, None],
+        'Status': ['Open', 'Pending']
+    }
+    df4 = pd.DataFrame(data4)
+    result4 = calculate_srs_created_and_closed_per_week(df4)
+    expected4_data = {
+        'Year-Week': ['2023-W09'],
+        'WeekDisplay': [_get_week_display_str('2023-W09')],
+        'Count': [2],
+        'Category': ['Created']
+    }
+    expected4 = pd.DataFrame(expected4_data)
+    pd.testing.assert_frame_equal(result4, expected4, check_like=True)
+    print("  Test Case 4 (Only created SRs) Passed.")
+
+    # Test Case 5: Only closed SRs, no created SRs (e.g., all creation dates are invalid)
+    data5 = {
+        'Created On': [None, 'invalid_date'],
+        'LastModDateTime': pd.to_datetime(['2023-03-05', '2023-03-06']),
+        'Status': ['Closed', 'Cancelled']
+    }
+    df5 = pd.DataFrame(data5)
+    result5 = calculate_srs_created_and_closed_per_week(df5)
+    expected5_data = {
+        'Year-Week': ['2023-W09'], # Week of March 5th and 6th
+        'WeekDisplay': [_get_week_display_str('2023-W09')],
+        'Count': [2],
+        'Category': ['Closed']
+    }
+    expected5 = pd.DataFrame(expected5_data)
+    pd.testing.assert_frame_equal(result5, expected5, check_like=True)
+    print("  Test Case 5 (Only closed SRs) Passed.")
+    
+    # Test Case 6: SRs closed with other statuses (should not be counted as 'Closed')
+    data6 = {
+        'Created On': pd.to_datetime(['2023-04-01']),
+        'LastModDateTime': pd.to_datetime(['2023-04-03']),
+        'Status': ['Pending Resolution'] # Not one of the specified closed statuses
+    }
+    df6 = pd.DataFrame(data6)
+    result6 = calculate_srs_created_and_closed_per_week(df6)
+    expected6_data = { # Only the created SR should appear
+        'Year-Week': ['2023-W13'],
+        'WeekDisplay': [_get_week_display_str('2023-W13')], # April 1st is in W13
+        'Count': [1],
+        'Category': ['Created']
+    }
+    expected6 = pd.DataFrame(expected6_data)
+    pd.testing.assert_frame_equal(result6, expected6, check_like=True)
+    print("  Test Case 6 (SRs with non-closed statuses) Passed.")
+
+    # Test Case 7: Mixed valid and invalid dates for Created On and LastModDateTime
+    data7 = {
+        'Created On': pd.to_datetime(['2023-05-01', 'invalid', '2023-05-08']),
+        'LastModDateTime': ['invalid', pd.to_datetime('2023-05-03'), pd.to_datetime('2023-05-10')],
+        'Status': ['Closed', 'Closed', 'Cancelled']
+    }
+    df7 = pd.DataFrame(data7)
+    result7 = calculate_srs_created_and_closed_per_week(df7)
+    # Expected:
+    # Created: 2023-W18 (1 from May 1), 2023-W19 (1 from May 8)
+    # Closed: 2023-W18 (1 from May 3), 2023-W19 (1 from May 10)
+    expected7_df_data = [
+        {'Year-Week': '2023-W18', 'WeekDisplay': _get_week_display_str('2023-W18'), 'Count': 1, 'Category': 'Created'},
+        {'Year-Week': '2023-W18', 'WeekDisplay': _get_week_display_str('2023-W18'), 'Count': 1, 'Category': 'Closed'},
+        {'Year-Week': '2023-W19', 'WeekDisplay': _get_week_display_str('2023-W19'), 'Count': 1, 'Category': 'Created'},
+        {'Year-Week': '2023-W19', 'WeekDisplay': _get_week_display_str('2023-W19'), 'Count': 1, 'Category': 'Closed'},
+    ]
+    expected7 = pd.DataFrame(expected7_df_data)
+    expected7 = expected7.sort_values(by=['Year-Week', 'Category']).reset_index(drop=True)
+    pd.testing.assert_frame_equal(result7, expected7, check_like=True)
+    print("  Test Case 7 (Mixed valid/invalid dates) Passed.")
+
+    print("All test_calculate_srs_created_and_closed_per_week tests passed.")
 
 if __name__ == '__main__':
     test_calculate_team_status_summary()
     test_case_count_calculation_and_filtering()
     test_calculate_srs_created_per_week()
+    test_calculate_srs_created_and_closed_per_week()  # Corrected this line if it was the source of a typo
     print("All utils.py tests passed successfully when run directly.")
