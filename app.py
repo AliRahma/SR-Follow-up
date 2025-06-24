@@ -1871,6 +1871,9 @@ else:
     #
     elif selected == "SR Overview":
         st.title("📊 Service Request (SR) Overview")
+        # Import the new function
+        from utils import calculate_srs_created_and_closed_per_week
+
 
         if 'sr_df' not in st.session_state or st.session_state.sr_df is None or st.session_state.sr_df.empty:
             st.warning(
@@ -1881,66 +1884,62 @@ else:
             sr_overview_df = st.session_state.sr_df.copy()
             st.markdown(f"**Total SRs Loaded:** {len(sr_overview_df)}")
 
-            if 'Created On' not in sr_overview_df.columns:
-                st.error("The SR data must contain a 'Created On' column to generate the weekly overview.")
+            # Check for required columns for the new chart
+            required_cols_for_chart = ['Created On', 'LastModDateTime', 'Status']
+            missing_cols = [col for col in required_cols_for_chart if col not in sr_overview_df.columns]
+
+            if missing_cols:
+                st.error(f"The SR data must contain the following columns to generate the weekly overview: {', '.join(missing_cols)}.")
             else:
-                srs_weekly_df = calculate_srs_created_per_week(sr_overview_df)
+                # Use the new function
+                srs_weekly_combined_df = calculate_srs_created_and_closed_per_week(sr_overview_df)
 
-                if srs_weekly_df.empty:
-                    st.info("No valid 'Created On' dates found to generate the weekly SRs chart, or all dates were invalid.")
+                if srs_weekly_combined_df.empty:
+                    st.info("No valid data found to generate the weekly SRs created/closed chart.")
                 else:
-                    st.subheader("SRs Created Per Week")
-                    # Chart uses 'WeekDisplay' from srs_weekly_df
-                    chart_x_axis = 'WeekDisplay' if 'WeekDisplay' in srs_weekly_df.columns else 'Year-Week'
-                    chart_labels = {'Number of SRs': 'Number of SRs Created', 'StatusCategory': 'Status Category'}
-                    chart_labels[chart_x_axis] = 'Week Period' if chart_x_axis == 'WeekDisplay' else 'Week'
-
-                    if 'StatusCategory' in srs_weekly_df.columns:
-                        fig = px.bar(
-                            srs_weekly_df,
-                            x=chart_x_axis,
-                            y='Number of SRs',
-                            color='StatusCategory',
-                            title="Service Requests Created Per Week by Status",
-                            labels=chart_labels,
-                            barmode='group'
-                        )
-                    else: # Fallback to simple chart
-                        fig = px.bar(
-                            srs_weekly_df,
-                            x=chart_x_axis,
-                            y='Number of SRs',
-                            title="Total Service Requests Created Per Week",
-                            labels=chart_labels
-                        )
-                    fig.update_layout(xaxis_title=chart_labels[chart_x_axis], yaxis_title="Number of SRs Created")
+                    st.subheader("SRs Created vs Closed Per Week")
+                    
+                    chart_x_axis = 'WeekDisplay'
+                    fig = px.bar(
+                        srs_weekly_combined_df,
+                        x=chart_x_axis,
+                        y='Count',
+                        color='Category', # This will create grouped bars for 'Created' and 'Closed'
+                        title="Service Requests Created vs Closed Per Week",
+                        labels={'Count': 'Number of SRs', 'Category': 'Category', chart_x_axis: 'Week Period'},
+                        barmode='group' # Explicitly set barmode to group
+                    )
+                    fig.update_layout(xaxis_title='Week Period', yaxis_title="Number of SRs")
                     st.plotly_chart(fig, use_container_width=True)
 
                 st.markdown("---")
                 st.subheader("Filterable SR Data")
 
                 # Prepare data for table display and its filters
-                table_display_df = sr_overview_df.copy()
+                table_display_df = sr_overview_df.copy() # This is the raw SR data for the table
                 week_map_for_filter = {}
                 week_options_for_multiselect = []
 
+                # Populate week filter options from the combined data used for the chart
+                if 'srs_weekly_combined_df' in locals() and not srs_weekly_combined_df.empty:
+                    if 'WeekDisplay' in srs_weekly_combined_df.columns and 'Year-Week' in srs_weekly_combined_df.columns:
+                        unique_week_options_df = srs_weekly_combined_df[['Year-Week', 'WeekDisplay']].drop_duplicates().sort_values(by='Year-Week')
+                        week_options_for_multiselect = unique_week_options_df['WeekDisplay'].tolist()
+                        for _, row in unique_week_options_df.iterrows():
+                            week_map_for_filter[row['WeekDisplay']] = row['Year-Week']
+                
+                # The table_display_df needs 'Created On' and 'Year-Week' for filtering logic below
                 if 'Created On' in table_display_df.columns:
                     table_display_df['Created On'] = pd.to_datetime(table_display_df['Created On'], errors='coerce')
-                    table_display_df.dropna(subset=['Created On'], inplace=True)
+                    # Keep rows with valid 'Created On' for the table, as filtering is based on this
+                    table_display_df.dropna(subset=['Created On'], inplace=True) 
                     if not table_display_df.empty:
-                        table_display_df['Year-Week'] = table_display_df['Created On'].dt.strftime('%G-W%V')
-
-                        if not srs_weekly_df.empty and 'WeekDisplay' in srs_weekly_df.columns and 'Year-Week' in srs_weekly_df.columns:
-                            unique_week_options_df = srs_weekly_df[['Year-Week', 'WeekDisplay']].drop_duplicates().sort_values(by='Year-Week')
-                            week_options_for_multiselect = unique_week_options_df['WeekDisplay'].tolist()
-                            for _, row in unique_week_options_df.iterrows():
-                                week_map_for_filter[row['WeekDisplay']] = row['Year-Week']
-                        elif not table_display_df.empty and 'Year-Week' in table_display_df.columns : # Check if table_display_df is not empty AND has 'Year-Week'
-                            raw_unique_weeks = sorted(table_display_df['Year-Week'].unique().tolist())
-                            from utils import _get_week_display_str
-                            week_options_for_multiselect = [_get_week_display_str(yw) for yw in raw_unique_weeks]
-                            for i, wd_option in enumerate(week_options_for_multiselect):
-                                week_map_for_filter[wd_option] = raw_unique_weeks[i]
+                         table_display_df['Year-Week'] = table_display_df['Created On'].dt.strftime('%G-W%V')
+                else:
+                    # If 'Created On' is not in table_display_df, week filtering on it won't work.
+                    # Ensure 'Year-Week' column doesn't cause issues if it was expected.
+                    if 'Year-Week' in table_display_df.columns: # Should not exist if 'Created On' didn't
+                        pass # Or handle appropriately, e.g. disable week filter. For now, it will just be empty.
 
                 col_filter1, col_filter2 = st.columns(2)
 
