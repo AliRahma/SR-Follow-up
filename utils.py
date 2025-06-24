@@ -535,7 +535,7 @@ def calculate_srs_created_and_closed_per_week(df: pd.DataFrame) -> pd.DataFrame:
     else: # Should not happen if required_cols check passed, but as a safeguard
         df_closed['Status_normalized'] = pd.Series(dtype='str')
 
-    closed_statuses_normalized = ["closed", "cancelled", "approval rejected", "rejected by ps"]
+    closed_statuses_normalized = ["closed","completed", "cancelled", "approval rejected", "rejected by ps"]
     df_closed = df_closed[df_closed['Status_normalized'].isin(closed_statuses_normalized)]
     
     initial_closed_count = len(df_closed) # Count after filtering by normalized status
