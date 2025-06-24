@@ -1897,20 +1897,42 @@ else:
                 if srs_weekly_combined_df.empty:
                     st.info("No valid data found to generate the weekly SRs created/closed chart.")
                 else:
-                    st.subheader("SRs Created vs Closed Per Week")
+                    # Filter data for created SRs
+                    created_df = srs_weekly_combined_df[srs_weekly_combined_df['Category'] == 'Created'].copy()
+                    # Filter data for closed SRs
+                    closed_df = srs_weekly_combined_df[srs_weekly_combined_df['Category'] == 'Closed'].copy()
                     
                     chart_x_axis = 'WeekDisplay'
-                    fig = px.bar(
-                        srs_weekly_combined_df,
-                        x=chart_x_axis,
-                        y='Count',
-                        color='Category', # This will create grouped bars for 'Created' and 'Closed'
-                        title="Service Requests Created vs Closed Per Week",
-                        labels={'Count': 'Number of SRs', 'Category': 'Category', chart_x_axis: 'Week Period'},
-                        barmode='group' # Explicitly set barmode to group
-                    )
-                    fig.update_layout(xaxis_title='Week Period', yaxis_title="Number of SRs")
-                    st.plotly_chart(fig, use_container_width=True)
+
+                    if not created_df.empty:
+                        st.subheader("Service Requests Created Per Week")
+                        fig_created = px.bar(
+                            created_df,
+                            x=chart_x_axis,
+                            y='Count',
+                            title="Service Requests Created Per Week",
+                            labels={'Count': 'Number of SRs Created', chart_x_axis: 'Week Period'},
+                            color_discrete_sequence=px.colors.qualitative.Plotly # Optional: for a consistent color
+                        )
+                        fig_created.update_layout(xaxis_title='Week Period', yaxis_title="Number of SRs Created")
+                        st.plotly_chart(fig_created, use_container_width=True)
+                    else:
+                        st.info("No data available for 'SRs Created Per Week' chart.")
+
+                    if not closed_df.empty:
+                        st.subheader("Service Requests Closed Per Week")
+                        fig_closed = px.bar(
+                            closed_df,
+                            x=chart_x_axis,
+                            y='Count',
+                            title="Service Requests Closed Per Week",
+                            labels={'Count': 'Number of SRs Closed', chart_x_axis: 'Week Period'},
+                            color_discrete_sequence=px.colors.qualitative.Plotly # Optional: pick a different color if desired e.g., px.colors.qualitative.Plotly[1:]
+                        )
+                        fig_closed.update_layout(xaxis_title='Week Period', yaxis_title="Number of SRs Closed")
+                        st.plotly_chart(fig_closed, use_container_width=True)
+                    else:
+                        st.info("No data available for 'SRs Closed Per Week' chart.")
 
                 st.markdown("---")
                 st.subheader("Filterable SR Data")
