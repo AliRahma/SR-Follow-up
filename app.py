@@ -2041,14 +2041,15 @@ else:
 
                     # Add 'Year-Week' for filtering, similar to the above table
                     # This check is now somewhat redundant due to the outer else, but kept for safety within this block
-                    if 'Created On' in closed_srs_df.columns:
-                    closed_srs_df['Created On'] = pd.to_datetime(closed_srs_df['Created On'], errors='coerce')
-                    closed_srs_df.dropna(subset=['Created On'], inplace=True)
-                    if not closed_srs_df.empty:
-                        closed_srs_df['Year-Week'] = closed_srs_df['Created On'].dt.strftime('%G-W%V')
-                else:
-                    if 'Year-Week' in closed_srs_df.columns: # Should not exist if 'Created On' didn't
-                        pass
+                    if 'Created On' in closed_srs_df.columns: # This is line 2044
+                        closed_srs_df['Created On'] = pd.to_datetime(closed_srs_df['Created On'], errors='coerce') # Indented
+                        closed_srs_df.dropna(subset=['Created On'], inplace=True) # Indented
+                        if not closed_srs_df.empty: # Indented
+                            closed_srs_df['Year-Week'] = closed_srs_df['Created On'].dt.strftime('%G-W%V') # Indented
+                    # No 'else' needed here as the outer structure handles missing 'Created On' by not entering this block.
+                    # If closed_srs_df is empty or 'Created On' was missing, 'Year-Week' might not be added,
+                    # but downstream filter logic should handle an empty or non-existent 'Year-Week' column gracefully,
+                    # especially since week_options_for_multiselect is based on the broader sr_overview_df.
 
                 # Filters for Closed SRs table (Week Period and Specific Day)
                 # These filters will be independent of the filters for the "Filterable SR Data" table above.
