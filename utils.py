@@ -85,7 +85,7 @@ def generate_csv_download(data):
 def time_since_breach(breach_date, resolution_date=None):
     if pd.isna(breach_date):
         return None
-    
+
     breach_dt = pd.to_datetime(breach_date, errors='coerce')
     if pd.isna(breach_dt):
         return None
@@ -96,12 +96,12 @@ def time_since_breach(breach_date, resolution_date=None):
             return "Invalid Resolution Date"
     else:
         end_dt = datetime.now()
-    
+
     delta = end_dt - breach_dt
     days = delta.days
     hours, remainder = divmod(delta.seconds, 3600)
     minutes, _ = divmod(remainder, 60)
-    
+
     if days < 0: # Breach hasn't happened yet or resolution before breach (data issue)
         return "Breach Not Reached / Resolved Before"
 
@@ -110,13 +110,13 @@ def time_since_breach(breach_date, resolution_date=None):
 def time_to_resolve_after_breach(breach_date, resolution_date):
     if pd.isna(breach_date) or pd.isna(resolution_date):
         return None
-    
+
     breach_dt = pd.to_datetime(breach_date, errors='coerce')
     res_dt = pd.to_datetime(resolution_date, errors='coerce')
 
     if pd.isna(breach_dt) or pd.isna(res_dt) or res_dt < breach_dt:
         return None # Or "Resolved before breach / Invalid dates"
-    
+
     delta = res_dt - breach_dt
     days = delta.days
     hours, remainder = divmod(delta.seconds, 3600)
@@ -267,7 +267,129 @@ def test_calculate_team_status_summary():
 
     print("All test_calculate_team_status_summary tests passed.")
 
+def calculate_srs_created_per_week(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates the number of SRs created per week from a DataFrame.
+
+    Args:
+        df: DataFrame containing SR data with a 'Created On' column.
+
+    Returns:
+        A DataFrame with columns ['Year-Week', 'Number of SRs']
+        sorted by 'Year-Week'. Returns an empty DataFrame if 'Created On'
+        is missing or data cannot be processed.
+    """
+    if 'Created On' not in df.columns:
+        return pd.DataFrame(columns=['Year-Week', 'Number of SRs'])
+
+    processed_df = df.copy()
+    # Convert 'Created On' to datetime, handling potential errors by coercing them to NaT
+    processed_df['Created On'] = pd.to_datetime(processed_df['Created On'], errors='coerce')
+
+    # Drop rows where 'Created On' could not be parsed
+    processed_df.dropna(subset=['Created On'], inplace=True)
+
+    if processed_df.empty:
+        return pd.DataFrame(columns=['Year-Week', 'Number of SRs'])
+
+    # Extract year and week number (ISO week date)
+    # %G is ISO year, %V is ISO week number
+    processed_df['Year-Week'] = processed_df['Created On'].dt.strftime('%G-W%V')
+
+    # Count SRs per week
+    srs_per_week = processed_df.groupby('Year-Week').size().reset_index(name='Number of SRs')
+
+    # Sort by Year-Week to ensure chronological order in the chart
+    srs_per_week = srs_per_week.sort_values(by='Year-Week').reset_index(drop=True)
+
+    return srs_per_week
+
+def test_calculate_srs_created_per_week():
+    """Tests for the calculate_srs_created_per_week function."""
+    print("Running test_calculate_srs_created_per_week...")
+
+    # 1. Basic functionality
+    data1 = {'Created On': pd.to_datetime(['2023-01-01', '2023-01-02', '2023-01-08', '2023-01-08'])}
+    df1 = pd.DataFrame(data1)
+    result1 = calculate_srs_created_per_week(df1)
+    expected1_data = {'Year-Week': ['2022-W52', '2023-W01'], 'Number of SRs': [1, 3]}
+    expected1 = pd.DataFrame(expected1_data)
+    pd.testing.assert_frame_equal(result1, expected1)
+    print("  Test Case 1 (Basic functionality) Passed.")
+
+    # 2. Missing 'Created On' column
+    df2 = pd.DataFrame({'SomeOtherColumn': [1, 2]})
+    result2 = calculate_srs_created_per_week(df2)
+    expected2 = pd.DataFrame(columns=['Year-Week', 'Number of SRs'])
+    pd.testing.assert_frame_equal(result2, expected2)
+    print("  Test Case 2 (Missing 'Created On' column) Passed.")
+
+    # 3. Dates that cannot be parsed (some valid)
+    data3 = {'Created On': [
+        pd.Timestamp('2023-01-01'),
+        None,
+        pd.Timestamp('2023-01-03'),
+        'completely invalid date string',
+        pd.Timestamp('2023-01-09 10:00:00')
+    ]}
+    df3 = pd.DataFrame(data3)
+    result3 = calculate_srs_created_per_week(df3)
+    expected3_data = {'Year-Week': ['2022-W52', '2023-W01', '2023-W02'], 'Number of SRs': [1, 1, 1]}
+    expected3 = pd.DataFrame(expected3_data)
+    pd.testing.assert_frame_equal(result3, expected3)
+    print("  Test Case 3 (Some unparseable dates) Passed.")
+
+    # 4. All dates invalid
+    data4 = {'Created On': ['not a date', None, '']}
+    df4 = pd.DataFrame(data4)
+    result4 = calculate_srs_created_per_week(df4)
+    expected4 = pd.DataFrame(columns=['Year-Week', 'Number of SRs'])
+    pd.testing.assert_frame_equal(result4, expected4)
+    print("  Test Case 4 (All dates invalid) Passed.")
+
+    # 5. Empty input DataFrame
+    df5 = pd.DataFrame(columns=['Created On'])
+    result5 = calculate_srs_created_per_week(df5)
+    expected5 = pd.DataFrame(columns=['Year-Week', 'Number of SRs'])
+    pd.testing.assert_frame_equal(result5, expected5)
+    print("  Test Case 5 (Empty input DataFrame) Passed.")
+
+    # 6. Correct sorting (weeks not in order in input)
+    data6 = {'Created On': pd.to_datetime(['2023-01-15', '2023-01-01', '2023-01-08'])}
+    df6 = pd.DataFrame(data6)
+    result6 = calculate_srs_created_per_week(df6)
+    expected6_data = {'Year-Week': ['2022-W52', '2023-W01', '2023-W02'], 'Number of SRs': [1, 1, 1]}
+    expected6 = pd.DataFrame(expected6_data)
+    pd.testing.assert_frame_equal(result6, expected6)
+    print("  Test Case 6 (Correct sorting) Passed.")
+
+    # 7. Different date/time formats (pandas should handle)
+    # Using ISO strings to avoid pd.to_datetime parsing issues in test setup
+    data7 = {'Created On': [
+        '2024-01-01T00:00:00',  # 2024-W01
+        '2025-07-05T07:33:00',  # 2025-W27 (July 5th)
+        '2025-07-06T08:00:00'   # 2025-W27 (July 6th)
+    ]}
+    df7 = pd.DataFrame(data7)
+    result7 = calculate_srs_created_per_week(df7)
+    expected7_data = {'Year-Week': ['2024-W01', '2025-W27'], 'Number of SRs': [1, 2]}
+    expected7 = pd.DataFrame(expected7_data)
+    pd.testing.assert_frame_equal(result7, expected7)
+    print("  Test Case 7 (Different date formats including user example) Passed.")
+
+    # 8. Year boundary (ISO week)
+    data8 = {'Created On': pd.to_datetime(['2023-12-31', '2024-01-01', '2024-12-29', '2024-12-30', '2025-01-01'])}
+    df8 = pd.DataFrame(data8)
+    result8 = calculate_srs_created_per_week(df8)
+    expected8_data = {'Year-Week': ['2023-W52', '2024-W01', '2024-W52', '2025-W01'], 'Number of SRs': [1, 1, 1, 2]}
+    expected8 = pd.DataFrame(expected8_data)
+    pd.testing.assert_frame_equal(result8, expected8)
+    print("  Test Case 8 (Year boundary ISO week) Passed.")
+
+    print("All test_calculate_srs_created_per_week tests passed.")
+
 if __name__ == '__main__':
     test_calculate_team_status_summary()
-    test_case_count_calculation_and_filtering() # Add call to the new test function
+    test_case_count_calculation_and_filtering()
+    test_calculate_srs_created_per_week()
     print("All utils.py tests passed successfully when run directly.")
