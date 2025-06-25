@@ -13,7 +13,7 @@ from utils import calculate_team_status_summary, calculate_srs_created_per_week,
 
 # Set page configuration
 st.set_page_config(
-    page_title="Intellipen SmartQ",
+    page_title="Intellipen SmartQ Test",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -2155,7 +2155,7 @@ else:
 st.markdown("---")
 st.markdown(
     """<div style="text-align:center; color:#888; font-size:0.8em;">
-    Intellipen SmartQ Test V3.5 | Developed by Ali Babiker | © June 2025
+    Intellipen SmartQ Test V3.6 | Developed by Ali Babiker | © June 2025
     </div>""",
     unsafe_allow_html=True
 )
