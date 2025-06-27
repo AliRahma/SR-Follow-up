@@ -264,23 +264,16 @@ if 'selected_case_ids' not in st.session_state:
     st.session_state.selected_case_ids = []
 if 'incident_overview_df' not in st.session_state:
     st.session_state.incident_overview_df = None
-if 'incident_overview_df_original_cols' not in st.session_state: # New state for incident overview original columns
-    st.session_state.incident_overview_df_original_cols = None
-if 'main_df_original_cols' not in st.session_state: # New state for main_df original columns
-    st.session_state.main_df_original_cols = None
-if 'sr_df_original_cols' not in st.session_state: # New state for sr_df original columns
-    st.session_state.sr_df_original_cols = None
 if 'report_datetime' not in st.session_state:
     st.session_state.report_datetime = None
 
 @st.cache_data
 def load_data(file):
     if file is None:
-        return None, None, None  # Return None for DataFrame, original_cols, and datetime string
+        return None, None  # Return None for both DataFrame and datetime string
     
     parsed_datetime_str = None
     df = None
-    original_columns = None
 
     try:
         file_name = file.name
@@ -332,29 +325,26 @@ def load_data(file):
             df = pd.read_excel(file, engine='openpyxl')
         else:
             st.error(f"Unsupported file type: {file_extension}. Please upload .xls or .xlsx files.") # Changed from raise to st.error
-            return None, None, parsed_datetime_str # Return None for df and original_cols if unsupported
+            return None, parsed_datetime_str # Return None for df if unsupported, but retain parsed_datetime_str if filename was parsable
 
-        if df is not None:
-            original_columns = df.columns.tolist()
-            df.columns = [col.lower().strip() for col in df.columns]
-
-        return df, original_columns, parsed_datetime_str
+        return df, parsed_datetime_str
             
     except Exception as e:
         st.error(f"Error loading file '{file.name}': {e}")
-        return None, None, parsed_datetime_str # Return None for df and original_cols
+        return None, parsed_datetime_str # Return None for df, but parsed_datetime_str might have a value if filename parsing happened before exception
 
 # Function to process main dataframe
-def process_main_df(df): # df here already has normalized columns
-    # Ensure date columns are in datetime format using normalized names
-    date_columns = ['case start date', 'last note date']
+def process_main_df(df):
+    # Ensure date columns are in datetime format
+    date_columns = ['Case Start Date', 'Last Note Date']
     for col in date_columns:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], format="%d/%m/%Y", errors='coerce')
+    return df
     
-    # Extract all unique users using normalized column name
-    if 'current user id' in df.columns:
-        all_users = sorted(df['current user id'].dropna().unique().tolist())
+    # Extract all unique users
+    if 'Current User Id' in df.columns:
+        all_users = sorted(df['Current User Id'].dropna().unique().tolist())
         st.session_state.all_users = all_users
     
     return df
@@ -435,10 +425,9 @@ with st.sidebar:
 
     if uploaded_file:
         with st.spinner("Loading main data..."):
-            df, original_cols, parsed_dt = load_data(uploaded_file)
+            df, parsed_dt = load_data(uploaded_file)
             if df is not None:
                 st.session_state.main_df = process_main_df(df)
-                st.session_state.main_df_original_cols = original_cols # Store original columns
                 abu_dhabi_tz = pytz.timezone('Asia/Dubai')
                 st.session_state.last_upload_time = datetime.now(abu_dhabi_tz).strftime("%Y-%m-%d %H:%M:%S")
                 st.success(f"Main data loaded: {df.shape[0]} records")
@@ -454,10 +443,9 @@ with st.sidebar:
 
     if sr_status_file:
         with st.spinner("Loading SR status data..."):
-            sr_df, sr_original_cols, parsed_dt_sr = load_data(sr_status_file)
+            sr_df, parsed_dt_sr = load_data(sr_status_file)
             if sr_df is not None:
                 st.session_state.sr_df = sr_df
-                st.session_state.sr_df_original_cols = sr_original_cols # Store original columns
                 st.success(f"SR status data loaded: {sr_df.shape[0]} records")
                 if st.session_state.report_datetime is None and parsed_dt_sr:
                     st.session_state.report_datetime = parsed_dt_sr
@@ -465,51 +453,21 @@ with st.sidebar:
     
     if incident_status_file:
         with st.spinner("Loading incident report data..."):
-            incident_df, incident_original_cols, parsed_dt_incident = load_data(incident_status_file)
+            incident_df, parsed_dt_incident = load_data(incident_status_file)
             if incident_df is not None:
                 st.session_state.incident_df = incident_df
-                # We might not need to store incident_original_cols separately for st.session_state.incident_df
-                # if it's only used to create incident_overview_df.
-                # However, if incident_df itself is ever displayed or its columns selected, we would.
-                # For now, let's assume incident_overview_df is the primary one from this file.
-
                 st.success(f"Incident report data loaded: {incident_df.shape[0]} records")
                 if st.session_state.report_datetime is None and parsed_dt_incident:
                     st.session_state.report_datetime = parsed_dt_incident
 
                 # Process for Incident Overview tab (existing logic)
-                # The incident_df here already has normalized columns.
                 overview_df = incident_df.copy()
-                # The rename for "customer" to "creator" should use normalized names.
-                # Original column name was 'Customer', normalized is 'customer'.
-                # Target new name is 'creator' (already normalized).
-                if "customer" in overview_df.columns: # Check using normalized name
-                    overview_df.rename(columns={"customer": "creator"}, inplace=True)
-
+                if "Customer" in overview_df.columns:
+                    overview_df.rename(columns={"Customer": "Creator"}, inplace=True)
                 st.session_state.incident_overview_df = overview_df
-                # Store the original column names that correspond to the *final* incident_overview_df columns
-                # This is tricky because of the rename. If "customer" was renamed to "creator",
-                # the original_columns list from load_data (incident_original_cols) needs to be updated.
-                # For simplicity, if a rename happened, we should adjust incident_original_cols before storing.
-                current_overview_cols = overview_df.columns.tolist()
-                overview_original_cols_map = dict(zip(incident_df.columns, incident_original_cols))
-
-                final_overview_original_cols = []
-                for col in current_overview_cols:
-                    if col == "creator" and "customer" in overview_original_cols_map and "creator" not in overview_original_cols_map:
-                        # If 'creator' is the new column and 'customer' was its source
-                        final_overview_original_cols.append(overview_original_cols_map.get("customer", "Creator")) # Fallback to "Creator" if somehow not in map
-                    elif col in overview_original_cols_map:
-                        final_overview_original_cols.append(overview_original_cols_map[col])
-                    else:
-                        final_overview_original_cols.append(col.replace("_", " ").title()) # Fallback for new cols or if mapping fails
-
-                st.session_state.incident_overview_df_original_cols = final_overview_original_cols
-
                 st.success(f"Incident Overview data loaded: {len(overview_df)} records, {len(overview_df.columns)} columns.")
             else:
                 st.session_state.incident_overview_df = None
-                st.session_state.incident_overview_df_original_cols = None
     
     # Display last upload time (existing logic)
     if 'last_upload_time' not in st.session_state or st.session_state.last_upload_time is None:
@@ -525,8 +483,7 @@ with st.sidebar:
     if st.session_state.data_loaded:
         st.subheader("🔍 Filters")
         df_main = st.session_state.main_df.copy() # Should be safe as data_loaded is True
-        # Use normalized column name for Current User Id
-        all_users = df_main['current user id'].dropna().unique().tolist() if 'current user id' in df_main.columns else []
+        all_users = df_main['Current User Id'].dropna().unique().tolist()
         SELECT_ALL_USERS_OPTION = "[Select All Users]"
         default_users_hardcoded = ['ali.babiker', 'anas.hasan', 'ahmed.mostafa','GPSSA_H.Salah','alharith.alfki']
         default_users = [u for u in default_users_hardcoded if u in all_users]
@@ -579,10 +536,9 @@ with st.sidebar:
                 else:
                     st.session_state.sidebar_user_widget_selection_controlled = list(currently_selected_actual_items)
         
-        # Use normalized column name for Case Start Date
-        if 'case start date' in df_main.columns and not df_main['case start date'].dropna().empty:
-            min_date = df_main['case start date'].min().date()
-            max_date = df_main['case start date'].max().date()
+        if 'Case Start Date' in df_main.columns:
+            min_date = df_main['Case Start Date'].min().date()
+            max_date = df_main['Case Start Date'].max().date()
             if 'sidebar_date_range_value' not in st.session_state:
                 st.session_state.sidebar_date_range_value = (min_date, max_date)
             if st.button("Select Full Range", key="btn_select_full_date_range"):
@@ -624,25 +580,17 @@ else:
     df_main = st.session_state.main_df.copy()
     
     # Apply user filters
-    # Use normalized column name for Current User Id
-    if st.session_state.selected_users and 'current user id' in df_main.columns:
-        df_filtered = df_main[df_main['current user id'].isin(st.session_state.selected_users)].copy()
+    if st.session_state.selected_users:
+        df_filtered = df_main[df_main['Current User Id'].isin(st.session_state.selected_users)].copy()
     else:
         df_filtered = df_main.copy()
     
     # Apply date filter if date range is selected
-    # Use normalized column name for Case Start Date
-    if 'case start date' in df_filtered.columns and 'date_range' in locals() and not df_filtered['case start date'].dropna().empty:
+    if 'Case Start Date' in df_filtered.columns and 'date_range' in locals():
         start_date, end_date = date_range
-        # Ensure the column is in datetime format before trying to access .dt accessor
-        if not pd.api.types.is_datetime64_any_dtype(df_filtered['case start date']):
-            df_filtered['case start date'] = pd.to_datetime(df_filtered['case start date'], errors='coerce')
-
-        # Filter out NaT values that might result from coercion errors before date comparison
-        df_filtered_no_nat = df_filtered.dropna(subset=['case start date'])
-        df_filtered = df_filtered_no_nat[
-            (df_filtered_no_nat['case start date'].dt.date >= start_date) &
-            (df_filtered_no_nat['case start date'].dt.date <= end_date)
+        df_filtered = df_filtered[
+            (df_filtered['Case Start Date'].dt.date >= start_date) & 
+            (df_filtered['Case Start Date'].dt.date <= end_date)
         ]
     
     # Prepare tab interface
@@ -667,66 +615,58 @@ else:
     )
     
     # Function to further process and enrich data
-    def enrich_data(df): # df comes in with already normalized columns
+    def enrich_data(df):
         df_enriched = df.copy()
         
-        # Classify and extract ticket info using normalized column name
-        if 'last note' in df_enriched.columns:
-            df_enriched[['Triage Status', 'Ticket Number', 'Type']] = pd.DataFrame( # These new columns are fine as is
-                df_enriched['last note'].apply(lambda x: pd.Series(classify_and_extract(x)))
+        # Classify and extract ticket info
+        if 'Last Note' in df_enriched.columns:
+            df_enriched[['Triage Status', 'Ticket Number', 'Type']] = pd.DataFrame(
+                df_enriched['Last Note'].apply(lambda x: pd.Series(classify_and_extract(x)))
             )
         else:
             df_enriched['Triage Status'] = "Error: Last Note missing"
             df_enriched['Ticket Number'] = None
             df_enriched['Type'] = None
 
-        # Calculate case age using normalized column name
-        if 'case start date' in df_enriched.columns:
-            df_enriched['Age (Days)'] = df_enriched['case start date'].apply(calculate_age) # New column
+        # Calculate case age
+        if 'Case Start Date' in df_enriched.columns:
+            df_enriched['Age (Days)'] = df_enriched['Case Start Date'].apply(calculate_age)
         else:
             df_enriched['Age (Days)'] = None
 
-        # Determine if note was created today using normalized column name
-        if 'last note date' in df_enriched.columns:
-            df_enriched['Created Today'] = df_enriched['last note date'].apply(is_created_today) # New column
+        # Determine if note was created today
+        if 'Last Note Date' in df_enriched.columns:
+            df_enriched['Created Today'] = df_enriched['Last Note Date'].apply(is_created_today)
         else:
             df_enriched['Created Today'] = False
         
-        # Initialize Status, Last Update, and Breach Passed columns (these are new, names are fine)
+        # Initialize Status, Last Update, and Breach Passed columns
         df_enriched['Status'] = None
         df_enriched['Last Update'] = None
-        df_enriched['Breach Passed'] = None # This will store boolean
+        df_enriched['Breach Passed'] = None
         
-        # Ensure 'Ticket Number' (a new column from classify_and_extract) is numeric before any merges
-        if 'Ticket Number' in df_enriched.columns: # This is a new column, not from original upload
+        # Ensure 'Ticket Number' is numeric before any merges
+        if 'Ticket Number' in df_enriched.columns:
             df_enriched['Ticket Number'] = pd.to_numeric(df_enriched['Ticket Number'], errors='coerce')
 
         # Merge with SR status data if available
-        # st.session_state.sr_df has normalized columns from load_data
         if hasattr(st.session_state, 'sr_df') and st.session_state.sr_df is not None:
             sr_df_copy = st.session_state.sr_df.copy()
             
-            # Use normalized column names for sr_df_copy
-            service_request_col_norm = 'service request'
-            status_col_norm = 'status'
-            last_mod_col_norm = 'lastmoddatetime'
-            breach_passed_col_norm = 'breach passed' # This is the expected normalized name from SR file
+            if 'Service Request' in sr_df_copy.columns:
+                sr_df_copy['Service Request'] = sr_df_copy['Service Request'].astype(str).str.extract(r'(\d{4,})')
+                sr_df_copy['Service Request'] = pd.to_numeric(sr_df_copy['Service Request'], errors='coerce')
+                sr_df_copy.dropna(subset=['Service Request'], inplace=True)
 
-            if service_request_col_norm in sr_df_copy.columns:
-                sr_df_copy[service_request_col_norm] = sr_df_copy[service_request_col_norm].astype(str).str.extract(r'(\d{4,})')
-                sr_df_copy[service_request_col_norm] = pd.to_numeric(sr_df_copy[service_request_col_norm], errors='coerce')
-                sr_df_copy.dropna(subset=[service_request_col_norm], inplace=True)
-
-                cols_to_merge_from_sr = [service_request_col_norm]
+                cols_to_merge_from_sr = ['Service Request']
                 sr_rename_for_merge = {}
 
-                if status_col_norm in sr_df_copy.columns:
-                    sr_rename_for_merge[status_col_norm] = 'SR_Status_temp'
-                if last_mod_col_norm in sr_df_copy.columns:
-                    sr_rename_for_merge[last_mod_col_norm] = 'SR_Last_Update_temp'
-                # For 'Breach Passed' from SR file, its normalized name is 'breach passed'
-                if breach_passed_col_norm in sr_df_copy.columns:
-                    sr_rename_for_merge[breach_passed_col_norm] = 'SR_Breach_Value_temp'
+                if 'Status' in sr_df_copy.columns:
+                    sr_rename_for_merge['Status'] = 'SR_Status_temp'
+                if 'LastModDateTime' in sr_df_copy.columns:
+                    sr_rename_for_merge['LastModDateTime'] = 'SR_Last_Update_temp'
+                if 'Breach Passed' in sr_df_copy.columns:
+                    sr_rename_for_merge['Breach Passed'] = 'SR_Breach_Value_temp'
 
                 sr_df_copy.rename(columns=sr_rename_for_merge, inplace=True)
 
@@ -735,24 +675,19 @@ else:
                         cols_to_merge_from_sr.append(new_name)
 
                 df_enriched = df_enriched.merge(
-                    sr_df_copy[cols_to_merge_from_sr], # These are already the temp names or normalized names
+                    sr_df_copy[cols_to_merge_from_sr],
                     how='left',
-                    left_on='Ticket Number', # This is a new column in df_enriched
-                    right_on=service_request_col_norm if service_request_col_norm not in sr_rename_for_merge else sr_rename_for_merge[service_request_col_norm], # Join on the correct name in sr_df_copy
+                    left_on='Ticket Number',
+                    right_on='Service Request',
                     suffixes=('', '_sr_merged')
                 )
 
-                # Clean up merged column if it was created (e.g. 'service request_sr_merged')
-                merged_sr_col_name = f"{service_request_col_norm}_sr_merged"
-                if merged_sr_col_name in df_enriched.columns:
-                    df_enriched.drop(columns=[merged_sr_col_name], inplace=True)
-                # If the original service_request_col_norm from sr_df_copy was not renamed and got merged, drop it if it's a duplicate.
-                # This situation is less likely if it's the join key and handled by suffixes, but as a safe guard.
-                elif service_request_col_norm in df_enriched.columns and service_request_col_norm != 'Ticket Number' and df_enriched.columns.tolist().count(service_request_col_norm) > 1 :
-                     df_enriched.drop(columns=[service_request_col_norm], errors='ignore', inplace=True)
+                if 'Service Request_sr_merged' in df_enriched.columns:
+                    df_enriched.drop(columns=['Service Request_sr_merged'], inplace=True)
+                elif 'Service Request' in df_enriched.columns and 'Ticket Number' in df_enriched.columns and df_enriched.columns.tolist().count('Service Request') > 1:
+                     df_enriched.drop(columns=['Service Request'], errors='ignore', inplace=True)
 
-
-                sr_mask = df_enriched['Type'] == 'SR' # Type is a new column
+                sr_mask = df_enriched['Type'] == 'SR'
 
                 if 'SR_Status_temp' in df_enriched.columns:
                     df_enriched.loc[sr_mask, 'Status'] = df_enriched.loc[sr_mask, 'SR_Status_temp']
@@ -774,54 +709,39 @@ else:
                     df_enriched.drop(columns=['SR_Breach_Value_temp'], inplace=True)
 
         # Merge with Incident status data if available
-        # st.session_state.incident_df has normalized columns
         if hasattr(st.session_state, 'incident_df') and st.session_state.incident_df is not None:
             incident_df_copy = st.session_state.incident_df.copy()
-
-            # Define normalized versions of potential incident ID column names
-            incident_id_col_options_norm = ['incident', 'incident id', 'incidentid', 'id', 'number']
-            incident_id_col_norm = None # This will store the actual normalized column name found
-
-            for col_option_norm in incident_id_col_options_norm:
-                if col_option_norm in incident_df_copy.columns:
-                    incident_id_col_norm = col_option_norm
+            incident_id_col_options = ['Incident', 'Incident ID', 'IncidentID', 'ID', 'Number']
+            incident_id_col = None
+            for col_option in incident_id_col_options:
+                if col_option in incident_df_copy.columns:
+                    incident_id_col = col_option
                     break
             
-            if incident_id_col_norm:
-                incident_df_copy[incident_id_col_norm] = incident_df_copy[incident_id_col_norm].astype(str).str.extract(r'(\d{4,})')
-                incident_df_copy[incident_id_col_norm] = pd.to_numeric(incident_df_copy[incident_id_col_norm], errors='coerce')
-                incident_df_copy.dropna(subset=[incident_id_col_norm], inplace=True)
+            if incident_id_col:
+                incident_df_copy[incident_id_col] = incident_df_copy[incident_id_col].astype(str).str.extract(r'(\d{4,})')
+                incident_df_copy[incident_id_col] = pd.to_numeric(incident_df_copy[incident_id_col], errors='coerce')
+                incident_df_copy.dropna(subset=[incident_id_col], inplace=True)
                 
-                inc_rename_map = {incident_id_col_norm: 'Incident_Number_temp'} # Use the found normalized name
+                inc_rename_map = {incident_id_col: 'Incident_Number_temp'}
                 inc_merge_cols = ['Incident_Number_temp']
 
-                # Normalized column names for incident file
-                status_col_inc_norm = 'status'
-                breach_passed_col_inc_norm = 'breach passed' # Expected normalized name
-
-                if status_col_inc_norm in incident_df_copy.columns:
-                    inc_rename_map[status_col_inc_norm] = 'INC_Status_temp'
+                if 'Status' in incident_df_copy.columns:
+                    inc_rename_map['Status'] = 'INC_Status_temp'
                     inc_merge_cols.append('INC_Status_temp')
 
-                # Normalized potential last update columns
-                last_update_options_norm = {
-                    'last checked at': 'last checked at', # value is original, key is normalized
-                    'last checked atc': 'last checked atc',
-                    'modified on': 'modified on',
-                    'last update': 'last update'
-                }
-                actual_last_update_col_norm = None
-                for norm_name, _ in last_update_options_norm.items():
-                    if norm_name in incident_df_copy.columns:
-                        actual_last_update_col_norm = norm_name
-                        break
+                last_update_col_incident = None
+                if 'Last Checked at' in incident_df_copy.columns: last_update_col_incident = 'Last Checked at'
+                elif 'Last Checked atc' in incident_df_copy.columns: last_update_col_incident = 'Last Checked atc'
+                elif 'Modified On' in incident_df_copy.columns: last_update_col_incident = 'Modified On'
+                elif 'Last Update' in incident_df_copy.columns: last_update_col_incident = 'Last Update'
 
-                if actual_last_update_col_norm:
-                    inc_rename_map[actual_last_update_col_norm] = 'INC_Last_Update_temp'
+                if last_update_col_incident:
+                    inc_rename_map[last_update_col_incident] = 'INC_Last_Update_temp'
                     inc_merge_cols.append('INC_Last_Update_temp')
 
-                if breach_passed_col_inc_norm in incident_df_copy.columns:
-                    inc_rename_map[breach_passed_col_inc_norm] = 'INC_Breach_Passed_temp'
+                if 'Breach Passed' in incident_df_copy.columns:
+                    inc_rename_map['Breach Passed'] = 'INC_Breach_Passed_temp'
                     inc_merge_cols.append('INC_Breach_Passed_temp')
 
                 incident_df_copy.rename(columns=inc_rename_map, inplace=True)
@@ -860,21 +780,15 @@ else:
                     df_enriched.loc[incident_mask, 'Breach Passed'] = mapped_inc_breach_values
                     df_enriched.drop(columns=['INC_Breach_Passed_temp'], inplace=True)
 
-        if 'Last Update' in df_enriched.columns: # This is a new column, name is fine
+        if 'Last Update' in df_enriched.columns:
             df_enriched['Last Update'] = pd.to_datetime(df_enriched['Last Update'], errors='coerce')
+        if 'Breach Date' in df_enriched.columns:
+            df_enriched['Breach Date'] = pd.to_datetime(df_enriched['Breach Date'], errors='coerce')
 
-        # 'breach date' is a column that might come from the main sheet, so it needs to be normalized if accessed directly
-        # However, the current logic doesn't seem to use a 'breach date' column directly from the input 'df' for df_enriched.
-        # 'Breach Passed' is the boolean flag being set.
-        # If there IS a 'breach date' column from the original Excel that needs processing here, it should be:
-        # if 'breach date' in df_enriched.columns: # Assuming 'breach date' is the normalized name
-        #     df_enriched['breach date'] = pd.to_datetime(df_enriched['breach date'], errors='coerce')
-        # For now, I'll assume the existing 'Breach Passed' logic is sufficient and there's no separate 'Breach Date' field from input being directly processed here.
-
-        if 'Ticket Number' in df_enriched.columns and 'Type' in df_enriched.columns: # New columns, names are fine
+        if 'Ticket Number' in df_enriched.columns and 'Type' in df_enriched.columns:
             valid_ticket_mask = df_enriched['Ticket Number'].notna() & df_enriched['Type'].notna()
             if valid_ticket_mask.any():
-                 df_enriched.loc[valid_ticket_mask, 'Case Count'] = df_enriched[valid_ticket_mask].groupby(['Ticket Number', 'Type'])['Ticket Number'].transform('size') # New column
+                 df_enriched.loc[valid_ticket_mask, 'Case Count'] = df_enriched[valid_ticket_mask].groupby(['Ticket Number', 'Type'])['Ticket Number'].transform('size')
         else:
             df_enriched['Case Count'] = pd.NA
             
@@ -1078,18 +992,14 @@ else:
         
         # Display data table with customizable columns
         if not df_display.empty:
-            all_columns = df_display.columns.tolist() # These are normalized at this point
+            all_columns = df_display.columns.tolist()
             SELECT_ALL_COLS_ANALYSIS_OPTION = "[Select All Columns]"
 
-            # Define default columns using NORMALIZED names
-            default_selected_cols_initial = ['last note', 'case id', 'current user id', 'case start date', 'Triage Status', 'Type', 'Ticket Number']
-            # 'Triage Status', 'Type', 'Ticket Number', 'Status', 'Last Update', 'Breach Passed' are new columns created in enrich_data,
-            # so their names are already as defined there (mixed case or specific).
-            # The ones from the original Excel (last note, case id, current user id, case start date) must be normalized.
-
-            if 'Status' in df_display.columns: # 'Status' is a new column, direct name is fine
-                default_selected_cols_initial.extend(['Status', 'Last Update']) # 'Last Update' is new
-            if 'Breach Passed' in df_display.columns: # 'Breach Passed' is new
+            # Define default columns (original logic)
+            default_selected_cols_initial = ['Last Note', 'Case Id', 'Current User Id', 'Case Start Date', 'Triage Status', 'Type', 'Ticket Number']
+            if 'Status' in df_display.columns:
+                default_selected_cols_initial.extend(['Status', 'Last Update'])
+            if 'Breach Passed' in df_display.columns:
                 default_selected_cols_initial.append('Breach Passed')
 
             # Ensure default columns are valid and exist in df_display
@@ -1183,54 +1093,51 @@ else:
         st.subheader("📝 Note Details")
         
         selected_case = st.selectbox(
-            "Select a case to view notes:", # df_display has normalized 'case id'
-            df_display['case id'].tolist() if 'case id' in df_display.columns else []
+            "Select a case to view notes:",
+            df_display['Case Id'].tolist()
         )
         
-        if selected_case and 'case id' in df_display.columns:
-            case_row = df_display[df_display['case id'] == selected_case].iloc[0]
+        if selected_case:
+            case_row = df_display[df_display['Case Id'] == selected_case].iloc[0]
             
             # Display case details in a table
-            # When accessing fields from case_row, use normalized names
             case_details = {
                 "Field": ["Case ID", "Owner", "Start Date", "Age", "Ticket Number", "Type"],
                 "Value": [
-                    case_row.get('case id', 'N/A'), # Use .get for safety
-                    case_row.get('current user id', 'N/A'),
-                    case_row['case start date'].strftime('%Y-%m-%d') if pd.notna(case_row.get('case start date')) else 'N/A',
-                    f"{case_row.get('Age (Days)', 'N/A')} days", # 'Age (Days)' is a new column
-                    int(case_row['Ticket Number']) if pd.notna(case_row.get('Ticket Number')) else 'N/A', # 'Ticket Number' is new
-                    case_row.get('Type', 'N/A') # 'Type' is new
+                    case_row['Case Id'],
+                    case_row['Current User Id'],
+                    case_row['Case Start Date'].strftime('%Y-%m-%d'),
+                    f"{case_row['Age (Days)']} days",
+                    int(case_row['Ticket Number']) if not pd.isna(case_row['Ticket Number']) else 'N/A',
+                    case_row['Type'] if not pd.isna(case_row['Type']) else 'N/A'
                 ]
             }
             
-            # Add Status if available (these are new columns, names are direct)
-            if 'Status' in case_row and pd.notna(case_row['Status']):
+            # Add Status if available
+            if 'Status' in case_row and not pd.isna(case_row['Status']):
                 case_details["Field"].append("Status")
                 case_details["Value"].append(case_row['Status'])
                 
-                if 'Last Update' in case_row and pd.notna(case_row['Last Update']):
+                if 'Last Update' in case_row and not pd.isna(case_row['Last Update']):
                     case_details["Field"].append("Last Update")
-                    case_details["Value"].append(case_row['Last Update']) # Already datetime or NaT
+                    case_details["Value"].append(case_row['Last Update'])
                 
-                if 'Breach Passed' in case_row: # This is a boolean or None
+                if 'Breach Passed' in case_row:
                     case_details["Field"].append("SLA Breach")
-                    breach_value = case_row['Breach Passed']
-                    display_breach = "Yes ⚠️" if breach_value is True else ("No" if breach_value is False else "N/A")
-                    case_details["Value"].append(display_breach)
+                    case_details["Value"].append("Yes ⚠️" if case_row['Breach Passed'] == True else "No")
             
             # Display as a table
             st.table(pd.DataFrame(case_details))
             
-            # Display the full note using normalized name
+            # Display the full note
             st.markdown("### Last Note")
-            if 'last note' in case_row and pd.notna(case_row['last note']):
-                st.text_area("Note Content", case_row['last note'], height=200)
+            if 'Last Note' in case_row and not pd.isna(case_row['Last Note']):
+                st.text_area("Note Content", case_row['Last Note'], height=200)
             else:
                 st.info("No notes available for this case")
             
-            # Download button for case details (df_display has normalized 'case id')
-            excel_data = generate_excel_download(df_display[df_display['case id'] == selected_case])
+            # Download button for case details
+            excel_data = generate_excel_download(df_display[df_display['Case Id'] == selected_case])
             st.download_button(
                 label="📥 Download Case Details",
                 data=excel_data,
@@ -1326,7 +1233,7 @@ else:
                     
                     # Download button for breach data
                     if not breach_display.empty:
-                        excel_breach_data = generate_excel_download(breach_display) # df_display has original names for display
+                        excel_breach_data = generate_excel_download(breach_display)
                         st.download_button(
                             label="📥 Download Breach Analysis",
                             data=excel_breach_data,
@@ -1334,12 +1241,9 @@ else:
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
                     
-                    # Breach data table: Define with normalized names for selection from df_enriched
-                    # Type, Ticket Number, Status, Last Update, Age (Days) are new columns from enrich_data
-                    breach_cols_normalized = ['case id', 'current user id', 'case start date',
-                                              'Type', 'Ticket Number', 'Status', 'Last Update', 'Age (Days)']
-                    # Select only those that exist in breach_display (which has normalized columns at this stage before display mapping)
-                    breach_display_cols = [col for col in breach_cols_normalized if col in breach_display.columns]
+                    # Breach data table
+                    breach_cols = ['Case Id', 'Current User Id', 'Case Start Date', 'Type', 'Ticket Number', 'Status', 'Last Update', 'Age (Days)']
+                    breach_display_cols = [col for col in breach_cols if col in breach_display.columns]
                     
                     if not breach_display.empty:
                         st.dataframe(breach_display[breach_display_cols], hide_index=True)
@@ -1405,33 +1309,29 @@ else:
             st.markdown('</div>', unsafe_allow_html=True)
         
         # Breakdown by user
-        if not today_sr_incidents.empty: # today_sr_incidents has normalized columns from main_df
+        if not today_sr_incidents.empty:
             st.subheader("👥 Breakdown by User")
             
-            # Use normalized column names for groupby and aggregation
-            user_breakdown = today_sr_incidents.groupby('current user id').agg({
-                'case id': 'count', # Normalized
-                'Type': lambda x: (x == 'SR').sum(), # 'Type' is a new column
-                'Ticket Number': lambda x: (today_sr_incidents.loc[x.index, 'Type'] == 'Incident').sum() # 'Ticket Number' is new
+            user_breakdown = today_sr_incidents.groupby('Current User Id').agg({
+                'Case Id': 'count',
+                'Type': lambda x: (x == 'SR').sum(),
+                'Ticket Number': lambda x: (today_sr_incidents.loc[x.index, 'Type'] == 'Incident').sum()
             }).rename(columns={
-                'case id': 'Total', # Original key was 'case id'
+                'Case Id': 'Total',
                 'Type': 'SRs',
                 'Ticket Number': 'Incidents'
             })
             
-            user_breakdown = user_breakdown.reset_index() # 'current user id' becomes a column
+            user_breakdown = user_breakdown.reset_index()
             
-            # Add total row, ensure 'current user id' is used for the column name
+            # Add total row
             total_row = pd.DataFrame({
-                'current user id': ['TOTAL'], # Normalized column name
+                'Current User Id': ['TOTAL'],
                 'Total': [user_breakdown['Total'].sum()],
                 'SRs': [user_breakdown['SRs'].sum()],
                 'Incidents': [user_breakdown['Incidents'].sum()]
             })
-            # Before concat, ensure columns match, especially 'current user id'
-            if 'Current User Id' in user_breakdown.columns and 'current user id' not in user_breakdown.columns:
-                 user_breakdown.rename(columns={'Current User Id': 'current user id'}, inplace=True)
-
+            
             user_breakdown_display = pd.concat([user_breakdown, total_row], ignore_index=True)
             
             st.dataframe(
@@ -1446,16 +1346,16 @@ else:
             
             today_col1, today_col2 = st.columns(2)
             
-            with today_col1: # Use normalized name for unique list
+            with today_col1:
                 today_user_filter = st.selectbox(
                     "Filter by User (Today)",
-                    ["All"] + (today_sr_incidents['current user id'].unique().tolist() if 'current user id' in today_sr_incidents else []),
+                    ["All"] + today_sr_incidents['Current User Id'].unique().tolist(),
                     key="today_user"
                 )
             
             with today_col2:
                 today_type_filter = st.selectbox(
-                    "Filter by Type (Today)", # 'Type' is new column
+                    "Filter by Type (Today)",
                     ["All", "SR", "Incident"],
                     key="today_type"
                 )
@@ -1463,10 +1363,10 @@ else:
             # Apply today's filters
             today_display = today_sr_incidents.copy()
             
-            if today_user_filter != "All" and 'current user id' in today_display.columns:
-                today_display = today_display[today_display["current user id"] == today_user_filter]
+            if today_user_filter != "All":
+                today_display = today_display[today_display["Current User Id"] == today_user_filter]
             
-            if today_type_filter != "All" and 'Type' in today_display.columns: # 'Type' is new column
+            if today_type_filter != "All":
                 today_display = today_display[today_display["Type"] == today_type_filter]
             
             # Display today's results
@@ -1479,7 +1379,7 @@ else:
             
             with results_today_col2:
                 if not today_display.empty:
-                    excel_today_data = generate_excel_download(today_display) # Will be mapped to original names later
+                    excel_today_data = generate_excel_download(today_display)
                     st.download_button(
                         label="📥 Download Today's Data",
                         data=excel_today_data,
@@ -1487,17 +1387,15 @@ else:
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
             
-            # Today's data table: define with normalized names for selection
-            # Type, Ticket Number, Status, Last Update are new/derived
-            today_cols_normalized = ['case id', 'current user id', 'last note date',
-                                     'Type', 'Ticket Number']
-            if 'Status' in today_display.columns: # Status is new
-                today_cols_normalized.extend(['Status', 'Last Update']) # Last Update is new
+            # Today's data table
+            today_cols = ['Case Id', 'Current User Id', 'Last Note Date', 'Type', 'Ticket Number']
+            if 'Status' in today_display.columns:
+                today_cols.extend(['Status', 'Last Update'])
             
-            today_display_cols = [col for col in today_cols_normalized if col in today_display.columns]
+            today_display_cols = [col for col in today_cols if col in today_display.columns]
             
             if not today_display.empty:
-                st.dataframe(today_display[today_display_cols], hide_index=True) # Will be mapped later
+                st.dataframe(today_display[today_display_cols], hide_index=True)
             else:
                 st.info("No records match the selected filters for today.")
                 
@@ -1505,17 +1403,14 @@ else:
             st.info("No new SR/Incidents found for today.")
             
             # Show all today's cases (not just SR/Incidents)
-            # today_cases has normalized columns
             if not today_cases.empty:
                 st.subheader("📝 All Today's Cases")
                 st.markdown(f"**Total cases with notes today:** {len(today_cases)}")
                 
-                # Define with normalized names
-                all_today_cols_normalized = ['case id', 'current user id', 'last note date', 'Triage Status']
-                # 'Triage Status' is a new column
-                all_today_display_cols = [col for col in all_today_cols_normalized if col in today_cases.columns]
+                all_today_cols = ['Case Id', 'Current User Id', 'Last Note Date', 'Triage Status']
+                all_today_display_cols = [col for col in all_today_cols if col in today_cases.columns]
                 
-                st.dataframe(today_cases[all_today_display_cols], hide_index=True) # Will be mapped later
+                st.dataframe(today_cases[all_today_display_cols], hide_index=True)
                 
                 # Download button for all today's cases
                 excel_all_today_data = generate_excel_download(today_cases)
@@ -1535,23 +1430,23 @@ else:
 
         if 'incident_overview_df' not in st.session_state or st.session_state.incident_overview_df is None or st.session_state.incident_overview_df.empty:
             st.warning(
-                "The 'Incident Report Excel' has not been uploaded or is missing the required columns. " # Simplified message
+                "The 'Incident Report Excel' has not been uploaded or is missing the required columns "
+                "('Customer', 'Incident', 'Team', 'Priority', 'Status'). " # Updated message
                 "Please upload the correct file via the sidebar to view the Incident Overview."
             )
         else:
-            overview_df = st.session_state.incident_overview_df.copy() # Work with a copy (already has normalized cols like 'creator', 'team', 'priority', 'status')
+            overview_df = st.session_state.incident_overview_df.copy() # Work with a copy
 
             st.subheader("Filter Incidents")
             # Create 4 columns for filters to include Status
             col1, col2, col3, col4 = st.columns(4)
 
             with col1:
-                # Ensure 'creator' column (normalized) exists before trying to access it
-                # The column 'creator' was made during the creation of incident_overview_df
-                if 'creator' in overview_df.columns:
-                    unique_creators = sorted(overview_df['creator'].dropna().unique())
+                # Ensure 'Creator' column exists before trying to access it
+                if 'Creator' in overview_df.columns:
+                    unique_creators = sorted(overview_df['Creator'].dropna().unique())
                 else:
-                    unique_creators = []
+                    unique_creators = [] # Default to empty list if column is missing
 
                 SELECT_ALL_CREATORS_OPTION = SELECT_ALL_BASE_STRING % "Creators"
 
@@ -1598,9 +1493,9 @@ else:
                         else:
                             st.session_state.incident_creator_widget_selection_controlled = list(currently_selected_actual_items)
 
-            with col2: # overview_df already has normalized 'team' column if it exists
-                if 'team' in overview_df.columns:
-                    unique_teams = sorted(overview_df['team'].dropna().unique())
+            with col2:
+                if 'Team' in overview_df.columns:
+                    unique_teams = sorted(overview_df['Team'].dropna().unique())
                 else:
                     unique_teams = []
 
@@ -1664,9 +1559,9 @@ else:
                         else:
                             st.session_state.incident_team_widget_selection_controlled = list(currently_selected_actual_items)
 
-            with col3: # overview_df already has normalized 'priority' column if it exists
-                if 'priority' in overview_df.columns:
-                    unique_priorities = sorted(overview_df['priority'].dropna().unique())
+            with col3:
+                if 'Priority' in overview_df.columns:
+                    unique_priorities = sorted(overview_df['Priority'].dropna().unique())
                 else:
                     unique_priorities = []
 
@@ -1715,12 +1610,11 @@ else:
                         else:
                             st.session_state.incident_priority_widget_selection_controlled = list(currently_selected_actual_items)
 
-            with col4: # New column for Status filter; overview_df has 'status' (normalized)
-                if 'status' in overview_df.columns:
-                    unique_statuses = sorted(overview_df['status'].dropna().unique())
-                    # Exclude 'Closed', 'Resolved', 'Cancelled' by default (comparison should be case-insensitive or use normalized values)
-                    # The unique_statuses are already normalized (lowercase), so direct comparison is fine.
-                    closed_like_statuses = {'closed', 'cancelled'} # Use lowercase for comparison
+            with col4: # New column for Status filter
+                if 'Status' in overview_df.columns:
+                    unique_statuses = sorted(overview_df['Status'].dropna().unique())
+                    # Exclude 'Closed', 'Resolved', 'Cancelled' by default
+                    closed_like_statuses = {'Closed', 'Cancelled'}
                     default_selected_statuses = [s for s in unique_statuses if s not in closed_like_statuses]
                 else:
                     unique_statuses = []
@@ -1779,26 +1673,24 @@ else:
                             st.session_state.incident_status_widget_selection_controlled = list(currently_selected_actual_items)
 
             # Apply filters
-            filtered_overview_df = overview_df # This df has normalized columns like 'creator', 'team', 'priority', 'status'
+            filtered_overview_df = overview_df
 
-            if st.session_state.get('selected_creators') and 'creator' in filtered_overview_df.columns:
-                filtered_overview_df = filtered_overview_df[filtered_overview_df['creator'].isin(st.session_state.selected_creators)]
-            if st.session_state.get('selected_teams') and 'team' in filtered_overview_df.columns:
-                filtered_overview_df = filtered_overview_df[filtered_overview_df['team'].isin(st.session_state.selected_teams)]
-            if st.session_state.get('selected_priorities') and 'priority' in filtered_overview_df.columns:
-                filtered_overview_df = filtered_overview_df[filtered_overview_df['priority'].isin(st.session_state.selected_priorities)]
-            if st.session_state.get('selected_statuses') and 'status' in filtered_overview_df.columns:
-                filtered_overview_df = filtered_overview_df[filtered_overview_df['status'].isin(st.session_state.selected_statuses)]
+            if st.session_state.get('selected_creators') and 'Creator' in filtered_overview_df.columns:
+                filtered_overview_df = filtered_overview_df[filtered_overview_df['Creator'].isin(st.session_state.selected_creators)]
+            if st.session_state.get('selected_teams') and 'Team' in filtered_overview_df.columns:
+                filtered_overview_df = filtered_overview_df[filtered_overview_df['Team'].isin(st.session_state.selected_teams)]
+            if st.session_state.get('selected_priorities') and 'Priority' in filtered_overview_df.columns:
+                filtered_overview_df = filtered_overview_df[filtered_overview_df['Priority'].isin(st.session_state.selected_priorities)]
+            if st.session_state.get('selected_statuses') and 'Status' in filtered_overview_df.columns: # Add status filter
+                filtered_overview_df = filtered_overview_df[filtered_overview_df['Status'].isin(st.session_state.selected_statuses)]
 
             # Calculate team and status totals
-            # calculate_team_status_summary will expect normalized 'team' and 'status' columns
             team_status_summary_df = calculate_team_status_summary(filtered_overview_df)
 
                     # --- Pie Chart for Closed Incidents ---
             st.markdown("---") # Visual separator before the pie chart
-            # Use normalized 'status' column. Compare with normalized 'closed'.
-            if 'status' in overview_df.columns:
-                closed_count = overview_df[overview_df['status'] == 'closed'].shape[0]
+            if 'Status' in overview_df.columns: # Ensure 'Status' column exists in the original overview_df
+                closed_count = overview_df[overview_df['Status'] == 'Closed'].shape[0]
                 total_incidents = overview_df.shape[0]
                 other_count = total_incidents - closed_count
 
@@ -1816,9 +1708,9 @@ else:
         # --- Team Assignment Distribution ---
         st.markdown("---") # Visual separator
         st.subheader("Team Assignment Distribution")
-        if not filtered_overview_df.empty: # filtered_overview_df has normalized 'team'
-            if 'team' in filtered_overview_df.columns:
-                team_distribution_data = filtered_overview_df['team'].value_counts()
+        if not filtered_overview_df.empty:
+            if 'Team' in filtered_overview_df.columns:
+                team_distribution_data = filtered_overview_df['Team'].value_counts()
                 
                 if not team_distribution_data.empty:
                     fig_team_dist = px.pie(
@@ -1838,12 +1730,12 @@ else:
         # --- Incidents by Team and Status Table ---
         st.markdown("---") # Visual separator
         st.subheader("Incidents by Team and Status")
-        # Check if 'team' or 'status' column was missing when team_status_summary_df was created.
-        # These are normalized names in filtered_overview_df.
-        if 'team' not in filtered_overview_df.columns or 'status' not in filtered_overview_df.columns:
-            st.warning("The 'Team' or 'Status' column (normalized) is missing in the uploaded incident data, so the 'Incidents by Team and Status' table cannot be generated.")
+        # Check if 'Team' or 'Status' column was missing when team_status_summary_df was created.
+        # This check is based on the columns available in filtered_overview_df, which was used to create team_status_summary_df.
+        if 'Team' not in filtered_overview_df.columns or 'Status' not in filtered_overview_df.columns:
+            st.warning("The 'Team' or 'Status' column is missing in the uploaded incident data, so the 'Incidents by Team and Status' table cannot be generated.")
         elif not team_status_summary_df.empty:
-            st.dataframe(team_status_summary_df, use_container_width=True, hide_index=True) # This df is generated by util function, names are as defined there
+            st.dataframe(team_status_summary_df, use_container_width=True, hide_index=True)
         else:
             # This case means columns existed, but the dataframe is empty (e.g., due to filters or no matching data)
             st.info("No incident data to display in the 'Incidents by Team and Status' table based on current filters or data availability.")
@@ -1852,19 +1744,19 @@ else:
         st.markdown("---") # Separator before the new table
         st.subheader("Filtered Incident Details")
 
-        if not filtered_overview_df.empty: # filtered_overview_df has normalized columns
-            # Define default columns for the table using NORMALIZED names
-            default_table_columns_normalized = ["incident", "creator", "team", "priority", "status"]
+        if not filtered_overview_df.empty:
+            # Define default columns for the table
+            default_table_columns = ["Incident", "Creator", "Team", "Priority", "Status"]
 
             # Filter default columns to only include those present in the DataFrame
-            available_default_columns = [col for col in default_table_columns_normalized if col in filtered_overview_df.columns]
+            available_default_columns = [col for col in default_table_columns if col in filtered_overview_df.columns]
 
             # Add column selector multiselect
             if not filtered_overview_df.empty:
-                all_available_columns = filtered_overview_df.columns.tolist() # These are normalized
+                all_available_columns = filtered_overview_df.columns.tolist()
                 SELECT_ALL_COLS_INCIDENT_OPTION = "[Select All Columns]"
 
-                # available_default_columns (normalized) is defined above this block
+                # available_default_columns is defined above this block in the original code
                 if 'incident_tab_column_widget_selection_controlled' not in st.session_state:
                     st.session_state.selected_table_columns = list(available_default_columns) # Actual columns for table
 
@@ -1921,20 +1813,23 @@ else:
                     st.info("Please select at least one column to display the table.")
                 else:
                     # Check if essential columns (even if not selected) are missing from the original data source for context
-                    # Use normalized names for check
-                    essential_source_cols_normalized = ["incident", "status"]
-                    missing_essential_source_cols = [col for col in essential_source_cols_normalized if col not in filtered_overview_df.columns]
+                    essential_source_cols = ["Incident", "Status"] # Example essentials for the table's purpose
+                    missing_essential_source_cols = [col for col in essential_source_cols if col not in filtered_overview_df.columns] # Check against filtered_overview_df
                     if missing_essential_source_cols:
                         st.caption(f"Warning: Source data is missing essential columns for full detail: {', '.join(missing_essential_source_cols)}.")
 
-                    st.write(f"Displaying {len(filtered_overview_df)} records in table with selected columns.")
-                    st.dataframe( # This dataframe will be mapped to original names later
+                    st.write(f"Displaying {len(filtered_overview_df)} records in table with selected columns.") # This len is of the df, not cols
+                    st.dataframe(
                         filtered_overview_df[current_cols_to_display_incident_tab],
                         use_container_width=True,
                         hide_index=True
                     )
-            else:
-                pass
+            else: # This else corresponds to 'if not filtered_overview_df.empty:' for the multiselect definition
+                # If filtered_overview_df is empty, no column selector or table is shown.
+                # This part of the original code is outside the SEARCH block, so it's retained.
+                # The st.info message about "No data to display in the 'Filtered Incident Details' table"
+                # will be shown from the outer 'else' block.
+                pass # Explicitly pass if no specific action for empty df here regarding column selector
 
         else:
             st.info("No data to display in the 'Filtered Incident Details' table based on current filters.")
@@ -1942,26 +1837,25 @@ else:
         # --- High-Priority Incidents Table (remains, now affected by Status filter too) ---
         st.markdown("---")
         st.subheader("High-Priority Incidents (P1 & P2)")
-        if not filtered_overview_df.empty: # filtered_overview_df has normalized columns
-            # Define with normalized names. 'Status' is already direct.
-            high_priority_table_cols_normalized = ["incident", "creator", "team", "priority"]
-            if 'status' in filtered_overview_df.columns: # Check normalized 'status'
-                high_priority_table_cols_normalized.append("status")
+        if not filtered_overview_df.empty:
+            # Include "Status" in this table as well, if available
+            high_priority_table_cols = ["Incident", "Creator", "Team", "Priority"]
+            if 'Status' in filtered_overview_df.columns:
+                high_priority_table_cols.append("Status")
 
-            # Check if all *intended* (normalized) columns for this table are present
-            missing_cols_for_high_priority_table = [col for col in ["incident", "creator", "team", "priority"] if col not in filtered_overview_df.columns]
+            # Check if all *intended* columns for this table are present
+            missing_cols_for_high_priority_table = [col for col in ["Incident", "Creator", "Team", "Priority"] if col not in filtered_overview_df.columns]
 
             if not missing_cols_for_high_priority_table:
-                high_priority_values = ["1", "2"] # Priority values are strings
+                high_priority_values = ["1", "2"]
                 
-                # Use normalized 'priority' for filtering
                 high_priority_incidents_df = filtered_overview_df[
-                    filtered_overview_df['priority'].astype(str).isin(high_priority_values)
+                    filtered_overview_df['Priority'].astype(str).isin(high_priority_values)
                 ]
                 
                 if not high_priority_incidents_df.empty:
-                    st.dataframe( # This dataframe will be mapped to original names later
-                        high_priority_incidents_df[[col for col in high_priority_table_cols_normalized if col in high_priority_incidents_df.columns]],
+                    st.dataframe(
+                        high_priority_incidents_df[[col for col in high_priority_table_cols if col in high_priority_incidents_df.columns]], # Display only available columns
                         use_container_width=True,
                         hide_index=True 
                     )
@@ -1987,19 +1881,17 @@ else:
                 "Please upload the SR status file via the sidebar to view the SR Overview."
             )
         else:
-            sr_overview_df = st.session_state.sr_df.copy() # sr_overview_df has normalized columns
+            sr_overview_df = st.session_state.sr_df.copy()
             st.markdown(f"**Total SRs Loaded:** {len(sr_overview_df)}")
 
-            # Check for required columns for the new chart using NORMALIZED names
-            required_cols_for_chart_normalized = ['created on', 'lastmoddatetime', 'status']
-            missing_cols = [col for col in required_cols_for_chart_normalized if col not in sr_overview_df.columns]
+            # Check for required columns for the new chart
+            required_cols_for_chart = ['Created On', 'LastModDateTime', 'Status']
+            missing_cols = [col for col in required_cols_for_chart if col not in sr_overview_df.columns]
 
             if missing_cols:
-                # Displaying original-like names in error for user readability
-                user_friendly_missing_cols = [st.session_state.sr_df_original_cols[sr_overview_df.columns.get_loc(col)] if col in sr_overview_df.columns and st.session_state.sr_df_original_cols else col for col in missing_cols]
-                st.error(f"The SR data must contain the following columns to generate the weekly overview: {', '.join(user_friendly_missing_cols)}.")
+                st.error(f"The SR data must contain the following columns to generate the weekly overview: {', '.join(missing_cols)}.")
             else:
-                # Use the new function; it will expect normalized columns
+                # Use the new function
                 srs_weekly_combined_df = calculate_srs_created_and_closed_per_week(sr_overview_df)
 
                 if srs_weekly_combined_df.empty:
@@ -2062,17 +1954,18 @@ else:
                         for _, row in unique_week_options_df.iterrows():
                             week_map_for_filter[row['WeekDisplay']] = row['Year-Week']
                 
-                # The table_display_df needs 'created on' (normalized) and 'Year-Week' for filtering logic below
-                if 'created on' in table_display_df.columns:
-                    table_display_df['created on'] = pd.to_datetime(table_display_df['created on'], errors='coerce')
-                    # Keep rows with valid 'created on' for the table, as filtering is based on this
-                    table_display_df.dropna(subset=['created on'], inplace=True)
+                # The table_display_df needs 'Created On' and 'Year-Week' for filtering logic below
+                if 'Created On' in table_display_df.columns:
+                    table_display_df['Created On'] = pd.to_datetime(table_display_df['Created On'], errors='coerce')
+                    # Keep rows with valid 'Created On' for the table, as filtering is based on this
+                    table_display_df.dropna(subset=['Created On'], inplace=True) 
                     if not table_display_df.empty:
-                         table_display_df['Year-Week'] = table_display_df['created on'].dt.strftime('%G-W%V') # New column
+                         table_display_df['Year-Week'] = table_display_df['Created On'].dt.strftime('%G-W%V')
                 else:
-                    # If 'created on' is not in table_display_df, week filtering on it won't work.
-                    if 'Year-Week' in table_display_df.columns:
-                        pass
+                    # If 'Created On' is not in table_display_df, week filtering on it won't work.
+                    # Ensure 'Year-Week' column doesn't cause issues if it was expected.
+                    if 'Year-Week' in table_display_df.columns: # Should not exist if 'Created On' didn't
+                        pass # Or handle appropriately, e.g. disable week filter. For now, it will just be empty.
 
                 col_filter1, col_filter2 = st.columns(2)
 
@@ -2084,15 +1977,15 @@ else:
                     )
 
                 with col_filter2:
-                    # Use normalized 'created on'
-                    min_date_val = table_display_df['created on'].min().date() if not table_display_df.empty and 'created on' in table_display_df.columns and not table_display_df['created on'].dropna().empty else None
-                    max_date_val = table_display_df['created on'].max().date() if not table_display_df.empty and 'created on' in table_display_df.columns and not table_display_df['created on'].dropna().empty else None
+                    # Corrected min_value and max_value for date_input
+                    min_date_val = table_display_df['Created On'].min().date() if not table_display_df.empty and 'Created On' in table_display_df.columns and not table_display_df['Created On'].dropna().empty else None
+                    max_date_val = table_display_df['Created On'].max().date() if not table_display_df.empty and 'Created On' in table_display_df.columns and not table_display_df['Created On'].dropna().empty else None
                     selected_day = st.date_input("Filter by Specific Day (Created On):", value=None, min_value=min_date_val, max_value=max_date_val)
 
-                # Apply filters to table_display_df using normalized 'created on'
-                if selected_day and 'created on' in table_display_df.columns:
-                    table_display_df = table_display_df[table_display_df['created on'].dt.date == selected_day]
-                elif selected_week_displays and 'Year-Week' in table_display_df.columns: # Year-Week is new, direct name
+                # Apply filters to table_display_df
+                if selected_day:
+                    table_display_df = table_display_df[table_display_df['Created On'].dt.date == selected_day]
+                elif selected_week_displays:
                     selected_year_weeks_short = [week_map_for_filter[wd] for wd in selected_week_displays if wd in week_map_for_filter]
                     if selected_year_weeks_short:
                          table_display_df = table_display_df[table_display_df['Year-Week'].isin(selected_year_weeks_short)]
@@ -2104,12 +1997,11 @@ else:
                 if not table_display_df.empty:
                     all_columns = table_display_df.columns.tolist()
                     # Remove 'Year-Week' from selectable columns if it was added for filtering only
-                    if 'Year-Week' in all_columns: # Year-Week is new, direct name
+                    if 'Year-Week' in all_columns:
                         all_columns.remove('Year-Week')
 
-                    # Use normalized names for default_cols that come from original file
-                    default_cols_normalized = ['service request', 'status', 'created on']
-                    sanitized_default_cols = [col for col in default_cols_normalized if col in all_columns]
+                    default_cols = ['Service Request', 'Status', 'Created On']
+                    sanitized_default_cols = [col for col in default_cols if col in all_columns]
 
                     if 'filterable_sr_data_cols_multiselect' not in st.session_state:
                         st.session_state.filterable_sr_data_cols_multiselect = sanitized_default_cols
@@ -2136,26 +2028,25 @@ else:
                 # --- Closed SRs Table ---
                 st.subheader("Closed Service Requests")
 
-                # Essential columns for this section, using normalized names
-                essential_cols_closed_sr_normalized = ['status', 'lastmoddatetime']
-                missing_essential_cols = [col for col in essential_cols_closed_sr_normalized if col not in sr_overview_df.columns]
+                # Essential columns for this section
+                essential_cols_closed_sr = ['Status', 'LastModDateTime']
+                missing_essential_cols = [col for col in essential_cols_closed_sr if col not in sr_overview_df.columns]
 
                 if missing_essential_cols:
-                    user_friendly_missing_cols = [st.session_state.sr_df_original_cols[sr_overview_df.columns.get_loc(col)] if col in sr_overview_df.columns and st.session_state.sr_df_original_cols else col for col in missing_essential_cols]
-                    st.warning(f"The uploaded SR data is missing the following essential column(s) for the Closed SRs table: {', '.join(user_friendly_missing_cols)}. This table cannot be displayed.")
+                    st.warning(f"The uploaded SR data is missing the following essential column(s) for the Closed SRs table: {', '.join(missing_essential_cols)}. This table cannot be displayed.")
                 else:
-                    closed_sr_statuses = ["closed", "completed", "cancelled", "approval rejected", "rejected by ps"] # these are already lowercase
-                    # Filter SRs that have one of the closed statuses, using normalized 'status'
+                    closed_sr_statuses = ["closed", "completed", "cancelled", "approval rejected", "rejected by ps"]
+                    # Filter SRs that have one of the closed statuses
                     closed_srs_df = sr_overview_df[
-                        sr_overview_df['status'].astype(str).str.lower().str.strip().isin(closed_sr_statuses)
+                        sr_overview_df['Status'].astype(str).str.lower().str.strip().isin(closed_sr_statuses)
                     ].copy()
 
-                    # Convert normalized 'lastmoddatetime' to datetime and generate 'Closure-Year-Week'
-                    closed_srs_df['lastmoddatetime'] = pd.to_datetime(closed_srs_df['lastmoddatetime'], errors='coerce', dayfirst=True, infer_datetime_format=True)
-                    closed_srs_df.dropna(subset=['lastmoddatetime'], inplace=True)
+                    # Convert LastModDateTime to datetime and generate 'Closure-Year-Week'
+                    closed_srs_df['LastModDateTime'] = pd.to_datetime(closed_srs_df['LastModDateTime'], errors='coerce', dayfirst=True, infer_datetime_format=True)
+                    closed_srs_df.dropna(subset=['LastModDateTime'], inplace=True) # Remove rows where LastModDateTime couldn't be parsed
 
                     if not closed_srs_df.empty:
-                        closed_srs_df['Closure-Year-Week'] = closed_srs_df['lastmoddatetime'].dt.strftime('%G-W%V') # New column
+                        closed_srs_df['Closure-Year-Week'] = closed_srs_df['LastModDateTime'].dt.strftime('%G-W%V')
                     else:
                         # Ensure the column exists even if empty, for consistency in later steps
                         closed_srs_df['Closure-Year-Week'] = pd.Series(dtype='str')
@@ -2189,9 +2080,9 @@ else:
                             key="closed_sr_closure_week_filter"
                         )
 
-                    with col_filter_closed_sr2: # Use normalized 'lastmoddatetime'
-                        min_date_val_closed = closed_srs_df['lastmoddatetime'].min().date() if not closed_srs_df.empty and not closed_srs_df['lastmoddatetime'].dropna().empty else None
-                        max_date_val_closed = closed_srs_df['lastmoddatetime'].max().date() if not closed_srs_df.empty and not closed_srs_df['lastmoddatetime'].dropna().empty else None
+                    with col_filter_closed_sr2:
+                        min_date_val_closed = closed_srs_df['LastModDateTime'].min().date() if not closed_srs_df.empty and not closed_srs_df['LastModDateTime'].dropna().empty else None
+                        max_date_val_closed = closed_srs_df['LastModDateTime'].max().date() if not closed_srs_df.empty and not closed_srs_df['LastModDateTime'].dropna().empty else None
                         selected_day_closed = st.date_input(
                             "Filter Closed SRs by Specific Closure Day:",
                             value=None,
@@ -2203,11 +2094,11 @@ else:
                     # Apply filters to closed_srs_df
                     filtered_closed_srs_df = closed_srs_df.copy()
 
-                    if selected_day_closed and 'lastmoddatetime' in filtered_closed_srs_df.columns:
+                    if selected_day_closed:
                         # Ensure LastModDateTime is date part for comparison
-                        filtered_closed_srs_df = filtered_closed_srs_df[filtered_closed_srs_df['lastmoddatetime'].dt.date == selected_day_closed]
-                    elif selected_week_displays_closed and 'Closure-Year-Week' in filtered_closed_srs_df.columns: # Closure-Year-Week is new
-                        if closed_sr_week_map_for_filter: # Ensure map is not empty
+                        filtered_closed_srs_df = filtered_closed_srs_df[filtered_closed_srs_df['LastModDateTime'].dt.date == selected_day_closed]
+                    elif selected_week_displays_closed:
+                        if 'Closure-Year-Week' in filtered_closed_srs_df.columns and closed_sr_week_map_for_filter:
                             selected_closure_year_weeks_short = [closed_sr_week_map_for_filter[wd] for wd in selected_week_displays_closed if wd in closed_sr_week_map_for_filter]
                             if selected_closure_year_weeks_short:
                                 filtered_closed_srs_df = filtered_closed_srs_df[filtered_closed_srs_df['Closure-Year-Week'].isin(selected_closure_year_weeks_short)]
@@ -2220,13 +2111,12 @@ else:
                         # 'Closure-Year-Week' is the one specifically created for this table's filtering.
                         # 'Year-Week' might exist if it was in the original sr_overview_df from created_on processing.
                         internal_cols_to_remove = ['Closure-Year-Week', 'Year-Week']
-                        for col_to_remove in internal_cols_to_remove: # These are new columns, direct names
+                        for col_to_remove in internal_cols_to_remove:
                             if col_to_remove in all_closed_columns:
                                 all_closed_columns.remove(col_to_remove)
 
-                        # Use normalized names for default_closed_cols from original file
-                        default_closed_cols_normalized = ['service request', 'status', 'created on', 'lastmoddatetime', 'resolution']
-                        sanitized_default_closed_cols = [col for col in default_closed_cols_normalized if col in all_closed_columns]
+                        default_closed_cols = ['Service Request', 'Status', 'Created On', 'LastModDateTime', 'Resolution'] # Example, adjust as needed
+                        sanitized_default_closed_cols = [col for col in default_closed_cols if col in all_closed_columns]
 
                         if 'closed_sr_data_cols_multiselect' not in st.session_state:
                             st.session_state.closed_sr_data_cols_multiselect = sanitized_default_closed_cols
