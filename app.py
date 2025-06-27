@@ -1863,7 +1863,7 @@ else:
             # --- Pie Chart for Closed Incidents ---
             st.markdown("---")
             if status_col_norm in overview_df.columns:
-                closed_count = overview_df[overview_df['Status'] == 'Closed'].shape[0]
+                closed_count = overview_df[overview_df[status_col_norm] == 'Closed'].shape[0] # Use status_col_norm here
                 total_incidents = overview_df.shape[0]
                 other_count = total_incidents - closed_count
 
