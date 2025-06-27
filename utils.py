@@ -132,22 +132,14 @@ def calculate_team_status_summary(df: pd.DataFrame) -> pd.DataFrame:
         df: Input DataFrame, expected to have 'Team' and 'Status' columns.
 
     Returns:
-        A DataFrame with columns ['team', 'status', 'Total Incidents'] (display names, but using normalized for processing)
+        A DataFrame with columns ['Team', 'Status', 'Total Incidents']
         summarizing the count of incidents. Returns an empty DataFrame
-        with these columns if 'team' or 'status' is missing in the input.
+        with these columns if 'Team' or 'Status' is missing in the input.
     """
-    # Expect normalized column names
-    team_col_norm = 'team'
-    status_col_norm = 'status'
-
-    if team_col_norm in df.columns and status_col_norm in df.columns:
-        summary_df = df.groupby([team_col_norm, status_col_norm]).size().reset_index(name='Total Incidents')
-        # For display consistency, if needed, rename columns back before returning,
-        # or let the calling function handle display mapping.
-        # For now, returning with processed (normalized or new) names.
-        # summary_df.rename(columns={team_col_norm: 'Team', status_col_norm: 'Status'}, inplace=True) # Optional display mapping
+    if 'Team' in df.columns and 'Status' in df.columns:
+        summary_df = df.groupby(['Team', 'Status']).size().reset_index(name='Total Incidents')
     else:
-        summary_df = pd.DataFrame(columns=[team_col_norm, status_col_norm, 'Total Incidents'])
+        summary_df = pd.DataFrame(columns=['Team', 'Status', 'Total Incidents'])
     return summary_df
 
 def test_case_count_calculation_and_filtering():
@@ -227,9 +219,9 @@ def test_calculate_team_status_summary():
     """Tests for the calculate_team_status_summary function."""
     print("Running test_calculate_team_status_summary...")
     # Test with valid data
-    sample_data = { # Use normalized names for test data setup
-        'team': ['Alpha', 'Alpha', 'Bravo', 'Alpha', 'Bravo', 'Charlie'],
-        'status': ['Open', 'Closed', 'Open', 'Open', 'In Progress', 'Open'],
+    sample_data = {
+        'Team': ['Alpha', 'Alpha', 'Bravo', 'Alpha', 'Bravo', 'Charlie'],
+        'Status': ['Open', 'Closed', 'Open', 'Open', 'In Progress', 'Open'],
         'ID': [1, 2, 3, 4, 5, 6]
     }
     test_df = pd.DataFrame(sample_data)
@@ -237,19 +229,15 @@ def test_calculate_team_status_summary():
 
     assert not summary.empty, "Test Case 1 Failed: Summary should not be empty for valid data."
     assert summary.shape == (5, 3), f"Test Case 1 Failed: Expected shape (5, 3), got {summary.shape}"
-    # Check columns returned by the function (should be normalized or as defined in function)
-    assert 'team' in summary.columns, "Test Case 1 Failed: 'team' column missing in summary."
-    assert 'status' in summary.columns, "Test Case 1 Failed: 'status' column missing in summary."
 
-
-    # Check a specific row: Alpha, Open should be 2 (using normalized names for access)
-    alpha_open_count_series = summary[(summary['team'] == 'Alpha') & (summary['status'] == 'Open')]['Total Incidents']
+    # Check a specific row: Alpha, Open should be 2
+    alpha_open_count_series = summary[(summary['Team'] == 'Alpha') & (summary['Status'] == 'Open')]['Total Incidents']
     assert not alpha_open_count_series.empty, "Test Case 1 Failed: 'Alpha' team with 'Open' status not found."
     alpha_open_count = alpha_open_count_series.iloc[0]
     assert alpha_open_count == 2, f"Test Case 1 Failed: Expected Alpha-Open count 2, got {alpha_open_count}"
 
     # Check another specific row: Bravo, In Progress should be 1
-    bravo_in_progress_series = summary[(summary['team'] == 'Bravo') & (summary['status'] == 'In Progress')]['Total Incidents']
+    bravo_in_progress_series = summary[(summary['Team'] == 'Bravo') & (summary['Status'] == 'In Progress')]['Total Incidents']
     assert not bravo_in_progress_series.empty, "Test Case 1 Failed: 'Bravo' team with 'In Progress' status not found."
     bravo_in_progress_count = bravo_in_progress_series.iloc[0]
     assert bravo_in_progress_count == 1, f"Test Case 1 Failed: Expected Bravo-In Progress count 1, got {bravo_in_progress_count}"
@@ -257,7 +245,7 @@ def test_calculate_team_status_summary():
     print("Test Case 1 (Valid Data) Passed.")
 
     # Test with missing columns
-    sample_data_missing_cols = { # This data doesn't have 'team' or 'status'
+    sample_data_missing_cols = {
         'Group': ['A', 'B'],
         'Value': [10, 20]
     }
@@ -265,17 +253,17 @@ def test_calculate_team_status_summary():
     summary_missing = calculate_team_status_summary(test_df_missing)
 
     assert summary_missing.empty, "Test Case 2 Failed: Summary should be empty when columns are missing."
-    expected_cols_norm = ['team', 'status', 'Total Incidents'] # Function returns these names
-    assert list(summary_missing.columns) == expected_cols_norm, \
-        f"Test Case 2 Failed: Expected columns {expected_cols_norm}, got {list(summary_missing.columns)}"
+    expected_cols = ['Team', 'Status', 'Total Incidents']
+    assert list(summary_missing.columns) == expected_cols, \
+        f"Test Case 2 Failed: Expected columns {expected_cols}, got {list(summary_missing.columns)}"
     print("Test Case 2 (Missing Columns) Passed.")
 
-    # Test with empty dataframe but correct (normalized) columns
-    empty_df_with_cols = pd.DataFrame(columns=['team', 'status', 'ID'])
+    # Test with empty dataframe but correct columns
+    empty_df_with_cols = pd.DataFrame(columns=['Team', 'Status', 'ID'])
     summary_empty_df = calculate_team_status_summary(empty_df_with_cols)
     assert summary_empty_df.empty, "Test Case 3 Failed: Summary should be empty for an empty input DataFrame."
-    assert list(summary_empty_df.columns) == expected_cols_norm, \
-        f"Test Case 3 Failed: Expected columns {expected_cols_norm} for empty input, got {list(summary_empty_df.columns)}"
+    assert list(summary_empty_df.columns) == expected_cols, \
+        f"Test Case 3 Failed: Expected columns {expected_cols} for empty input, got {list(summary_empty_df.columns)}"
     print("Test Case 3 (Empty DataFrame with Columns) Passed.")
 
     print("All test_calculate_team_status_summary tests passed.")
@@ -296,46 +284,43 @@ def calculate_srs_created_per_week(df: pd.DataFrame) -> pd.DataFrame:
     Now includes categorization by status and a week display string.
 
     Args:
-        df: DataFrame containing SR data with a 'created on' column (normalized).
-            May optionally contain a 'status' column (normalized).
+        df: DataFrame containing SR data with a 'Created On' column.
+            May optionally contain a 'Status' column.
 
     Returns:
         A DataFrame with columns ['Year-Week', 'WeekDisplay', 'StatusCategory' (optional), 'Number of SRs']
-        Sorted appropriately. Returns an empty DataFrame if 'created on'
+        Sorted appropriately. Returns an empty DataFrame if 'Created On'
         is missing or data cannot be processed.
     """
-    created_on_col_norm = 'created on'
-    status_col_norm = 'status'
-
-    if created_on_col_norm not in df.columns:
+    if 'Created On' not in df.columns:
         # Determine expected columns for empty df based on original df's columns
         cols = ['Year-Week', 'WeekDisplay', 'Number of SRs']
-        if status_col_norm in df.columns: # If original df had Status, expect StatusCategory
+        if 'Status' in df.columns: # If original df had Status, expect StatusCategory
             cols.insert(2, 'StatusCategory')
         return pd.DataFrame(columns=cols)
 
     processed_df = df.copy()
-    processed_df[created_on_col_norm] = pd.to_datetime(processed_df[created_on_col_norm], errors='coerce')
-    processed_df.dropna(subset=[created_on_col_norm], inplace=True)
+    processed_df['Created On'] = pd.to_datetime(processed_df['Created On'], errors='coerce')
+    processed_df.dropna(subset=['Created On'], inplace=True)
 
     if processed_df.empty:
         cols = ['Year-Week', 'WeekDisplay', 'Number of SRs']
-        if status_col_norm in df.columns:
+        if 'Status' in df.columns:
             cols.insert(2, 'StatusCategory')
         return pd.DataFrame(columns=cols)
 
-    processed_df['Year-Week'] = processed_df[created_on_col_norm].dt.strftime('%G-W%V')
+    processed_df['Year-Week'] = processed_df['Created On'].dt.strftime('%G-W%V')
 
     group_by_cols = ['Year-Week']
-    if status_col_norm in processed_df.columns:
-        processed_df['StatusCategory'] = np.select( # StatusCategory is a new column
-            [processed_df[status_col_norm].fillna('').str.lower().isin(['closed', 'cancelled'])], # Use normalized status
+    if 'Status' in processed_df.columns:
+        processed_df['StatusCategory'] = np.select(
+            [processed_df['Status'].fillna('').str.lower().isin(['closed', 'cancelled'])],
             ['Closed/Cancelled'],
             default='New/Pending'
         )
         group_by_cols.append('StatusCategory')
 
-    srs_per_week = processed_df.groupby(group_by_cols).size().reset_index(name='Number of SRs') # Number of SRs is new
+    srs_per_week = processed_df.groupby(group_by_cols).size().reset_index(name='Number of SRs')
 
     # Add WeekDisplay column
     if not srs_per_week.empty:
@@ -376,8 +361,8 @@ def test_calculate_srs_created_per_week():
     """Tests for the calculate_srs_created_per_week function."""
     print("Running test_calculate_srs_created_per_week...")
 
-    # 1. Basic functionality (No Status column) - use normalized 'created on'
-    data1 = {'created on': pd.to_datetime(['2023-01-01', '2023-01-02', '2023-01-08', '2023-01-08'])}
+    # 1. Basic functionality (No Status column)
+    data1 = {'Created On': pd.to_datetime(['2023-01-01', '2023-01-02', '2023-01-08', '2023-01-08'])}
     df1 = pd.DataFrame(data1)
     result1 = calculate_srs_created_per_week(df1)
     expected1_data = {
@@ -392,21 +377,21 @@ def test_calculate_srs_created_per_week():
     pd.testing.assert_frame_equal(result1, expected1)
     print("  Test Case 1 (Basic functionality - No Status) Passed.")
 
-    # 2. Missing 'created on' column - use normalized 'status'
-    df2 = pd.DataFrame({'SomeOtherColumn': [1, 2], 'status': ['Open', 'Closed']})
+    # 2. Missing 'Created On' column
+    df2 = pd.DataFrame({'SomeOtherColumn': [1, 2], 'Status': ['Open', 'Closed']})
     result2 = calculate_srs_created_per_week(df2)
     expected2 = pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'StatusCategory', 'Number of SRs'])
     pd.testing.assert_frame_equal(result2, expected2, check_dtype=False)
-    print("  Test Case 2 (Missing 'created on' column) Passed.")
+    print("  Test Case 2 (Missing 'Created On' column) Passed.")
 
-    # 3. Dates that cannot be parsed (some valid, with Status) - use normalized names
-    data3 = {'created on': [
+    # 3. Dates that cannot be parsed (some valid, with Status)
+    data3 = {'Created On': [
         pd.Timestamp('2023-01-01'),
         None,
         pd.Timestamp('2023-01-03'),
         'completely invalid date string',
         pd.Timestamp('2023-01-09 10:00:00')
-    ], 'status': ['Open', 'New', 'Closed', 'Pending', 'Cancelled']} # Normalized 'status'
+    ], 'Status': ['Open', 'New', 'Closed', 'Pending', 'Cancelled']}
     df3 = pd.DataFrame(data3)
     result3 = calculate_srs_created_per_week(df3)
     expected3_data = {
@@ -423,25 +408,25 @@ def test_calculate_srs_created_per_week():
     pd.testing.assert_frame_equal(result3, expected3)
     print("  Test Case 3 (Some unparseable dates, with Status) Passed.")
 
-    # 4. All dates invalid (with Status) - use normalized names
-    data4 = {'created on': ['not a date', None, ''], 'status': ['Open', 'New', 'Closed']}
+    # 4. All dates invalid (with Status)
+    data4 = {'Created On': ['not a date', None, ''], 'Status': ['Open', 'New', 'Closed']}
     df4 = pd.DataFrame(data4)
     result4 = calculate_srs_created_per_week(df4)
     expected4 = pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'StatusCategory', 'Number of SRs'])
     pd.testing.assert_frame_equal(result4, expected4, check_dtype=False)
     print("  Test Case 4 (All dates invalid, with Status) Passed.")
 
-    # 5. Empty input DataFrame (with Status column defined) - use normalized names
-    df5 = pd.DataFrame(columns=['created on', 'status'])
+    # 5. Empty input DataFrame (with Status column defined)
+    df5 = pd.DataFrame(columns=['Created On', 'Status'])
     result5 = calculate_srs_created_per_week(df5)
     expected5 = pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'StatusCategory', 'Number of SRs'])
     pd.testing.assert_frame_equal(result5, expected5, check_dtype=False)
     print("  Test Case 5 (Empty input DataFrame, with Status) Passed.")
 
-    # 6. Correct sorting (with Status) - use normalized names
+    # 6. Correct sorting (with Status)
     data6 = {
-        'created on': pd.to_datetime(['2023-01-15', '2023-01-01', '2023-01-08', '2023-01-01']),
-        'status': ['Closed', 'Open', 'Pending', 'Cancelled']
+        'Created On': pd.to_datetime(['2023-01-15', '2023-01-01', '2023-01-08', '2023-01-01']),
+        'Status': ['Closed', 'Open', 'Pending', 'Cancelled']
     }
     df6 = pd.DataFrame(data6)
     result6 = calculate_srs_created_per_week(df6)
@@ -459,14 +444,14 @@ def test_calculate_srs_created_per_week():
     pd.testing.assert_frame_equal(result6, expected6)
     print("  Test Case 6 (Correct sorting, with Status) Passed.")
 
-    # 7. Different date/time formats and mixed status cases (including NaN status) - use normalized names
-    data7 = {'created on': [
+    # 7. Different date/time formats and mixed status cases (including NaN status)
+    data7 = {'Created On': [
         '2024-01-01T00:00:00',
         '2025-07-05T07:33:00',
         '2025-07-06T08:00:00',
         '2024-01-02T10:00:00',
         '2024-01-03T11:00:00'
-    ], 'status': ['new', 'CLOSED', 'CaNcElLeD', pd.NA, 'Active']} # Normalized 'status'
+    ], 'Status': ['new', 'CLOSED', 'CaNcElLeD', pd.NA, 'Active']}
     df7 = pd.DataFrame(data7)
     result7 = calculate_srs_created_per_week(df7)
     expected7_data = {
@@ -482,10 +467,10 @@ def test_calculate_srs_created_per_week():
     pd.testing.assert_frame_equal(result7, expected7)
     print("  Test Case 7 (Mixed formats, statuses, NaN status) Passed.")
 
-    # 8. Year boundary (ISO week, with Status) - use normalized names
+    # 8. Year boundary (ISO week, with Status)
     data8 = {
-        'created on': pd.to_datetime(['2023-12-31', '2024-01-01', '2024-12-29', '2024-12-30', '2025-01-01']),
-        'status': ['Open', 'Closed', 'Cancelled', 'Pending', 'New'] # Normalized 'status'
+        'Created On': pd.to_datetime(['2023-12-31', '2024-01-01', '2024-12-29', '2024-12-30', '2025-01-01']),
+        'Status': ['Open', 'Closed', 'Cancelled', 'Pending', 'New']
     }
     df8 = pd.DataFrame(data8)
     result8 = calculate_srs_created_per_week(df8)
@@ -510,7 +495,7 @@ def calculate_srs_created_and_closed_per_week(df: pd.DataFrame) -> pd.DataFrame:
     Calculates the number of SRs created and closed per week from a DataFrame.
 
     Args:
-        df: DataFrame containing SR data with 'created on', 'lastmoddatetime', and 'status' columns (normalized).
+        df: DataFrame containing SR data with 'Created On', 'LastModDateTime', and 'Status' columns.
 
     Returns:
         A DataFrame with columns ['Year-Week', 'WeekDisplay', 'Count', 'Category']
@@ -518,59 +503,58 @@ def calculate_srs_created_and_closed_per_week(df: pd.DataFrame) -> pd.DataFrame:
         Sorted appropriately. Returns an empty DataFrame if essential columns
         are missing or data cannot be processed.
     """
-    created_on_norm = 'created on'
-    last_mod_norm = 'lastmoddatetime'
-    status_norm = 'status'
-
-    required_cols_normalized = [created_on_norm, last_mod_norm, status_norm]
-    if not all(col in df.columns for col in required_cols_normalized):
+    required_cols = ['Created On', 'LastModDateTime', 'Status']
+    if not all(col in df.columns for col in required_cols):
         # Consider logging this issue if a logging mechanism is available
-        print(f"Warning: calculate_srs_created_and_closed_per_week missing one or more required columns: {', '.join(required_cols_normalized)}.")
+        print("Warning: calculate_srs_created_and_closed_per_week missing required columns.")
         return pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'Count', 'Category'])
 
     # --- SRs Created ---
     df_created = df.copy()
     initial_created_count = len(df_created)
-    df_created[created_on_norm] = pd.to_datetime(df_created[created_on_norm], errors='coerce', dayfirst=True, infer_datetime_format=True)
-    df_created.dropna(subset=[created_on_norm], inplace=True)
+    df_created['Created On'] = pd.to_datetime(df_created['Created On'], errors='coerce', dayfirst=True, infer_datetime_format=True)
+    df_created.dropna(subset=['Created On'], inplace=True)
     parsed_created_count = len(df_created)
     if initial_created_count > 0 and parsed_created_count < initial_created_count * 0.8: # Example: if more than 20% failed
-        print(f"Warning: Significant number of '{created_on_norm}' dates failed to parse ({initial_created_count - parsed_created_count} out of {initial_created_count}).")
+        print(f"Warning: Significant number of 'Created On' dates failed to parse ({initial_created_count - parsed_created_count} out of {initial_created_count}).")
 
 
     if df_created.empty:
         srs_created_weekly = pd.DataFrame(columns=['Year-Week', 'Count']).astype({'Year-Week': 'str', 'Count': pd.Int64Dtype()})
     else:
-        df_created['Year-Week'] = df_created[created_on_norm].dt.strftime('%G-W%V') # Year-Week is new
-        srs_created_weekly = df_created.groupby('Year-Week').size().reset_index(name='Count') # Count is new
+        df_created['Year-Week'] = df_created['Created On'].dt.strftime('%G-W%V')
+        srs_created_weekly = df_created.groupby('Year-Week').size().reset_index(name='Count') # Count is int here
     
-    srs_created_weekly['Category'] = 'Created' # Category is new
+    srs_created_weekly['Category'] = 'Created'
 
     # --- SRs Closed ---
     df_closed = df.copy()
-    # Status column is already normalized (status_norm)
-    # No need for 'Status_normalized' temporary column if status_norm is consistently used.
+    # Normalize status column for comparison
+    if 'Status' in df_closed.columns:
+        df_closed['Status_normalized'] = df_closed['Status'].astype(str).str.lower().str.strip()
+    else: # Should not happen if required_cols check passed, but as a safeguard
+        df_closed['Status_normalized'] = pd.Series(dtype='str')
 
-    closed_statuses_normalized = ["closed","completed", "cancelled", "approval rejected", "rejected by ps"] # these are already lowercase
-    df_closed = df_closed[df_closed[status_norm].astype(str).str.lower().str.strip().isin(closed_statuses_normalized)]
+    closed_statuses_normalized = ["closed","completed", "cancelled", "approval rejected", "rejected by ps"]
+    df_closed = df_closed[df_closed['Status_normalized'].isin(closed_statuses_normalized)]
     
     initial_closed_count = len(df_closed) # Count after filtering by normalized status
-    df_closed[last_mod_norm] = pd.to_datetime(df_closed[last_mod_norm], errors='coerce', dayfirst=True, infer_datetime_format=True)
-    df_closed.dropna(subset=[last_mod_norm], inplace=True)
+    df_closed['LastModDateTime'] = pd.to_datetime(df_closed['LastModDateTime'], errors='coerce', dayfirst=True, infer_datetime_format=True)
+    df_closed.dropna(subset=['LastModDateTime'], inplace=True)
     parsed_closed_count = len(df_closed)
     if initial_closed_count > 0 and parsed_closed_count < initial_closed_count * 0.8: # Example: if more than 20% failed
-        print(f"Warning: Significant number of '{last_mod_norm}' dates failed to parse for closed SRs ({initial_closed_count - parsed_closed_count} out of {initial_closed_count}).")
+        print(f"Warning: Significant number of 'LastModDateTime' dates failed to parse for closed SRs ({initial_closed_count - parsed_closed_count} out of {initial_closed_count}).")
 
     if df_closed.empty:
         srs_closed_weekly = pd.DataFrame(columns=['Year-Week', 'Count']).astype({'Year-Week': 'str', 'Count': pd.Int64Dtype()})
     else:
-        df_closed['Year-Week'] = df_closed[last_mod_norm].dt.strftime('%G-W%V') # Year-Week is new
-        srs_closed_weekly = df_closed.groupby('Year-Week').size().reset_index(name='Count') # Count is new
+        df_closed['Year-Week'] = df_closed['LastModDateTime'].dt.strftime('%G-W%V')
+        srs_closed_weekly = df_closed.groupby('Year-Week').size().reset_index(name='Count') # Count is int here
         
-    srs_closed_weekly['Category'] = 'Closed' # Category is new
+    srs_closed_weekly['Category'] = 'Closed'
 
-    # Clean up temporary normalized status column if it exists - Not needed anymore
-    # if 'Status_normalized' in df_closed.columns:
+    # Clean up temporary normalized status column if it exists
+    if 'Status_normalized' in df_closed.columns:
         df_closed = df_closed.drop(columns=['Status_normalized'])
 
 
