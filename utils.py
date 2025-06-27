@@ -2,6 +2,7 @@ import pandas as pd
 import io
 from datetime import datetime, timedelta # Added timedelta
 import numpy as np
+import re # Import re at the module level
 
 # Function to classify and extract ticket info
 def classify_and_extract(note, ticket_regex, sr_min_range, sr_max_range):
@@ -136,8 +137,21 @@ def calculate_team_status_summary(df: pd.DataFrame) -> pd.DataFrame:
         summarizing the count of incidents. Returns an empty DataFrame
         with these columns if 'Team' or 'Status' is missing in the input.
     """
-    if 'Team' in df.columns and 'Status' in df.columns:
-        summary_df = df.groupby(['Team', 'Status']).size().reset_index(name='Total Incidents')
+    # Column names received by this function should already be normalized
+    # as it's called from app.py after data loading and normalization.
+    # However, for robustness, we can use normalized versions for keys.
+    team_col_norm = normalize_column_name('Team')
+    status_col_norm = normalize_column_name('Status')
+    total_incidents_col_name = 'total_incidents' # Output column name
+
+    if team_col_norm in df.columns and status_col_norm in df.columns:
+        summary_df = df.groupby([team_col_norm, status_col_norm]).size().reset_index(name=total_incidents_col_name)
+        # Rename columns to fixed output names if desired, e.g., 'Team', 'Status'
+        # For now, keep them as team_col_norm, status_col_norm from the groupby if that's acceptable.
+        # Or, explicitly rename them to the desired output string names:
+        summary_df.rename(columns={team_col_norm: 'Team',
+                                   status_col_norm: 'Status',
+                                   total_incidents_col_name: 'Total Incidents'}, inplace=True)
     else:
         summary_df = pd.DataFrame(columns=['Team', 'Status', 'Total Incidents'])
     return summary_df
@@ -284,43 +298,51 @@ def calculate_srs_created_per_week(df: pd.DataFrame) -> pd.DataFrame:
     Now includes categorization by status and a week display string.
 
     Args:
-        df: DataFrame containing SR data with a 'Created On' column.
-            May optionally contain a 'Status' column.
+        df: DataFrame containing SR data with a 'Created On' column (normalized).
+            May optionally contain a 'Status' column (normalized).
 
     Returns:
         A DataFrame with columns ['Year-Week', 'WeekDisplay', 'StatusCategory' (optional), 'Number of SRs']
-        Sorted appropriately. Returns an empty DataFrame if 'Created On'
+        Sorted appropriately. Returns an empty DataFrame if 'created_on' (normalized)
         is missing or data cannot be processed.
     """
-    if 'Created On' not in df.columns:
-        # Determine expected columns for empty df based on original df's columns
-        cols = ['Year-Week', 'WeekDisplay', 'Number of SRs']
-        if 'Status' in df.columns: # If original df had Status, expect StatusCategory
-            cols.insert(2, 'StatusCategory')
+    created_on_col_norm = normalize_column_name('Created On')
+    status_col_norm = normalize_column_name('Status')
+    # Output column names (can remain as is, or be normalized if there's a convention for output too)
+    year_week_col = 'Year-Week'
+    week_display_col = 'WeekDisplay'
+    status_category_col = 'StatusCategory'
+    number_of_srs_col = 'Number of SRs'
+
+
+    if created_on_col_norm not in df.columns:
+        cols = [year_week_col, week_display_col, number_of_srs_col]
+        if status_col_norm in df.columns:
+            cols.insert(2, status_category_col)
         return pd.DataFrame(columns=cols)
 
     processed_df = df.copy()
-    processed_df['Created On'] = pd.to_datetime(processed_df['Created On'], errors='coerce')
-    processed_df.dropna(subset=['Created On'], inplace=True)
+    processed_df[created_on_col_norm] = pd.to_datetime(processed_df[created_on_col_norm], errors='coerce')
+    processed_df.dropna(subset=[created_on_col_norm], inplace=True)
 
     if processed_df.empty:
-        cols = ['Year-Week', 'WeekDisplay', 'Number of SRs']
-        if 'Status' in df.columns:
-            cols.insert(2, 'StatusCategory')
+        cols = [year_week_col, week_display_col, number_of_srs_col]
+        if status_col_norm in df.columns:
+            cols.insert(2, status_category_col)
         return pd.DataFrame(columns=cols)
 
-    processed_df['Year-Week'] = processed_df['Created On'].dt.strftime('%G-W%V')
+    processed_df[year_week_col] = processed_df[created_on_col_norm].dt.strftime('%G-W%V')
 
-    group_by_cols = ['Year-Week']
-    if 'Status' in processed_df.columns:
-        processed_df['StatusCategory'] = np.select(
-            [processed_df['Status'].fillna('').str.lower().isin(['closed', 'cancelled'])],
+    group_by_cols = [year_week_col]
+    if status_col_norm in processed_df.columns:
+        processed_df[status_category_col] = np.select(
+            [processed_df[status_col_norm].fillna('').str.lower().isin(['closed', 'cancelled'])],
             ['Closed/Cancelled'],
             default='New/Pending'
         )
-        group_by_cols.append('StatusCategory')
+        group_by_cols.append(status_category_col)
 
-    srs_per_week = processed_df.groupby(group_by_cols).size().reset_index(name='Number of SRs')
+    srs_per_week = processed_df.groupby(group_by_cols).size().reset_index(name=number_of_srs_col)
 
     # Add WeekDisplay column
     if not srs_per_week.empty:
@@ -330,29 +352,20 @@ def calculate_srs_created_per_week(df: pd.DataFrame) -> pd.DataFrame:
 
 
     # Sorting
-    sort_cols = ['Year-Week']
-    if 'StatusCategory' in srs_per_week.columns:
-        sort_cols.append('StatusCategory')
+    sort_cols = [year_week_col] # Uses the defined output column name
+    if status_category_col in srs_per_week.columns:
+        sort_cols.append(status_category_col)
     srs_per_week = srs_per_week.sort_values(by=sort_cols).reset_index(drop=True)
 
-    # Reorder columns to make WeekDisplay appear after Year-Week
-    if 'WeekDisplay' in srs_per_week.columns:
-        all_cols = srs_per_week.columns.tolist()
-        # Remove WeekDisplay and Year-Week to reinsert them at the beginning
-        if 'Year-Week' in all_cols: all_cols.remove('Year-Week')
-        if 'WeekDisplay' in all_cols: all_cols.remove('WeekDisplay')
+    # Reorder columns
+    if week_display_col in srs_per_week.columns:
+        # Define the full expected order using the defined output column names
+        expected_final_cols = [year_week_col, week_display_col]
+        if status_category_col in srs_per_week.columns: # Check if StatusCategory was actually added
+             expected_final_cols.append(status_category_col)
+        expected_final_cols.append(number_of_srs_col)
 
-        final_cols_order = ['Year-Week', 'WeekDisplay'] + all_cols
-        # Ensure all original columns are present in final_cols_order to avoid KeyError
-        # This can happen if srs_per_week was empty and some columns were not created.
-        # A more robust way is to define the full expected order.
-
-        expected_final_cols = ['Year-Week', 'WeekDisplay']
-        if 'StatusCategory' in processed_df.columns: # Check original df for Status presence
-             expected_final_cols.append('StatusCategory')
-        expected_final_cols.append('Number of SRs')
-
-        # Filter final_cols_order to only include columns that actually exist in srs_per_week
+        # Filter to only include columns that actually exist in srs_per_week, in the desired order
         srs_per_week = srs_per_week[[col for col in expected_final_cols if col in srs_per_week.columns]]
 
     return srs_per_week
@@ -503,81 +516,85 @@ def calculate_srs_created_and_closed_per_week(df: pd.DataFrame) -> pd.DataFrame:
         Sorted appropriately. Returns an empty DataFrame if essential columns
         are missing or data cannot be processed.
     """
-    required_cols = ['Created On', 'LastModDateTime', 'Status']
-    if not all(col in df.columns for col in required_cols):
-        # Consider logging this issue if a logging mechanism is available
-        print("Warning: calculate_srs_created_and_closed_per_week missing required columns.")
-        return pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'Count', 'Category'])
+    created_on_col_norm = normalize_column_name('Created On')
+    last_mod_dt_col_norm = normalize_column_name('LastModDateTime')
+    status_col_norm = normalize_column_name('Status')
+
+    # Output column names - these can remain as is.
+    year_week_col = 'Year-Week'
+    week_display_col = 'WeekDisplay'
+    count_col = 'Count'
+    category_col = 'Category'
+
+    required_cols_norm = [created_on_col_norm, last_mod_dt_col_norm, status_col_norm]
+    if not all(col in df.columns for col in required_cols_norm):
+        # For warning, map back to raw names
+        raw_names_map = {created_on_col_norm: 'Created On', last_mod_dt_col_norm: 'LastModDateTime', status_col_norm: 'Status'}
+        missing_raw = [raw_names_map[rcn] for rcn in required_cols_norm if rcn not in df.columns]
+        print(f"Warning: calculate_srs_created_and_closed_per_week missing required columns: {', '.join(missing_raw)}.")
+        return pd.DataFrame(columns=[year_week_col, week_display_col, count_col, category_col])
 
     # --- SRs Created ---
     df_created = df.copy()
     initial_created_count = len(df_created)
-    df_created['Created On'] = pd.to_datetime(df_created['Created On'], errors='coerce', dayfirst=True, infer_datetime_format=True)
-    df_created.dropna(subset=['Created On'], inplace=True)
+    df_created[created_on_col_norm] = pd.to_datetime(df_created[created_on_col_norm], errors='coerce', dayfirst=True, infer_datetime_format=True)
+    df_created.dropna(subset=[created_on_col_norm], inplace=True)
     parsed_created_count = len(df_created)
-    if initial_created_count > 0 and parsed_created_count < initial_created_count * 0.8: # Example: if more than 20% failed
-        print(f"Warning: Significant number of 'Created On' dates failed to parse ({initial_created_count - parsed_created_count} out of {initial_created_count}).")
-
+    if initial_created_count > 0 and parsed_created_count < initial_created_count * 0.8:
+        print(f"Warning: Significant number of '{created_on_col_norm}' dates failed to parse ({initial_created_count - parsed_created_count} out of {initial_created_count}).")
 
     if df_created.empty:
-        srs_created_weekly = pd.DataFrame(columns=['Year-Week', 'Count']).astype({'Year-Week': 'str', 'Count': pd.Int64Dtype()})
+        srs_created_weekly = pd.DataFrame(columns=[year_week_col, count_col]).astype({year_week_col: 'str', count_col: pd.Int64Dtype()})
     else:
-        df_created['Year-Week'] = df_created['Created On'].dt.strftime('%G-W%V')
-        srs_created_weekly = df_created.groupby('Year-Week').size().reset_index(name='Count') # Count is int here
+        df_created[year_week_col] = df_created[created_on_col_norm].dt.strftime('%G-W%V')
+        srs_created_weekly = df_created.groupby(year_week_col).size().reset_index(name=count_col)
     
-    srs_created_weekly['Category'] = 'Created'
+    srs_created_weekly[category_col] = 'Created'
 
     # --- SRs Closed ---
     df_closed = df.copy()
-    # Normalize status column for comparison
-    if 'Status' in df_closed.columns:
-        df_closed['Status_normalized'] = df_closed['Status'].astype(str).str.lower().str.strip()
-    else: # Should not happen if required_cols check passed, but as a safeguard
-        df_closed['Status_normalized'] = pd.Series(dtype='str')
+    status_normalized_temp_col = 'status_normalized_temp' # for internal use
+    if status_col_norm in df_closed.columns:
+        df_closed[status_normalized_temp_col] = df_closed[status_col_norm].astype(str).str.lower().str.strip()
+    else:
+        df_closed[status_normalized_temp_col] = pd.Series(dtype='str')
 
-    closed_statuses_normalized = ["closed","completed", "cancelled", "approval rejected", "rejected by ps"]
-    df_closed = df_closed[df_closed['Status_normalized'].isin(closed_statuses_normalized)]
+    closed_statuses_text = ["closed","completed", "cancelled", "approval rejected", "rejected by ps"]
+    df_closed = df_closed[df_closed[status_normalized_temp_col].isin(closed_statuses_text)]
     
-    initial_closed_count = len(df_closed) # Count after filtering by normalized status
-    df_closed['LastModDateTime'] = pd.to_datetime(df_closed['LastModDateTime'], errors='coerce', dayfirst=True, infer_datetime_format=True)
-    df_closed.dropna(subset=['LastModDateTime'], inplace=True)
+    initial_closed_count = len(df_closed)
+    df_closed[last_mod_dt_col_norm] = pd.to_datetime(df_closed[last_mod_dt_col_norm], errors='coerce', dayfirst=True, infer_datetime_format=True)
+    df_closed.dropna(subset=[last_mod_dt_col_norm], inplace=True)
     parsed_closed_count = len(df_closed)
-    if initial_closed_count > 0 and parsed_closed_count < initial_closed_count * 0.8: # Example: if more than 20% failed
-        print(f"Warning: Significant number of 'LastModDateTime' dates failed to parse for closed SRs ({initial_closed_count - parsed_closed_count} out of {initial_closed_count}).")
+    if initial_closed_count > 0 and parsed_closed_count < initial_closed_count * 0.8:
+        print(f"Warning: Significant number of '{last_mod_dt_col_norm}' dates failed to parse for closed SRs ({initial_closed_count - parsed_closed_count} out of {initial_closed_count}).")
 
     if df_closed.empty:
-        srs_closed_weekly = pd.DataFrame(columns=['Year-Week', 'Count']).astype({'Year-Week': 'str', 'Count': pd.Int64Dtype()})
+        srs_closed_weekly = pd.DataFrame(columns=[year_week_col, count_col]).astype({year_week_col: 'str', count_col: pd.Int64Dtype()})
     else:
-        df_closed['Year-Week'] = df_closed['LastModDateTime'].dt.strftime('%G-W%V')
-        srs_closed_weekly = df_closed.groupby('Year-Week').size().reset_index(name='Count') # Count is int here
+        df_closed[year_week_col] = df_closed[last_mod_dt_col_norm].dt.strftime('%G-W%V')
+        srs_closed_weekly = df_closed.groupby(year_week_col).size().reset_index(name=count_col)
         
-    srs_closed_weekly['Category'] = 'Closed'
+    srs_closed_weekly[category_col] = 'Closed'
 
-    # Clean up temporary normalized status column if it exists
-    if 'Status_normalized' in df_closed.columns:
-        df_closed = df_closed.drop(columns=['Status_normalized'])
-
+    if status_normalized_temp_col in df_closed.columns: # Should not be needed if it was only on df_closed
+        pass # df_closed is not used beyond this point for this column
 
     # --- Combine and add WeekDisplay ---
     combined_df = pd.concat([srs_created_weekly, srs_closed_weekly], ignore_index=True)
 
     if combined_df.empty:
-        return pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'Count', 'Category'])
+        return pd.DataFrame(columns=[year_week_col, week_display_col, count_col, category_col])
 
-    # Add WeekDisplay column
-    # Ensure 'Year-Week' column exists before applying _get_week_display_str
-    if 'Year-Week' in combined_df.columns:
-        combined_df['WeekDisplay'] = combined_df['Year-Week'].apply(_get_week_display_str)
-    else: # Should not happen if srs_created_weekly or srs_closed_weekly had data
-        combined_df['WeekDisplay'] = pd.Series(dtype='str')
+    if year_week_col in combined_df.columns:
+        combined_df[week_display_col] = combined_df[year_week_col].apply(_get_week_display_str)
+    else:
+        combined_df[week_display_col] = pd.Series(dtype='str')
 
-
-    # Sorting and final column order
-    combined_df = combined_df.sort_values(by=['Year-Week', 'Category']).reset_index(drop=True)
+    combined_df = combined_df.sort_values(by=[year_week_col, category_col]).reset_index(drop=True)
     
-    final_columns = ['Year-Week', 'WeekDisplay', 'Count', 'Category']
-    # Filter to only include columns that actually exist, in the desired order
-    combined_df = combined_df[[col for col in final_columns if col in combined_df.columns]]
+    final_columns_ordered = [year_week_col, week_display_col, count_col, category_col]
+    combined_df = combined_df[[col for col in final_columns_ordered if col in combined_df.columns]]
 
     return combined_df
 
@@ -815,3 +832,26 @@ if __name__ == '__main__':
     test_calculate_srs_created_per_week()
     test_calculate_srs_created_and_closed_per_week()  # Corrected this line if it was the source of a typo
     print("All utils.py tests passed successfully when run directly.")
+
+def normalize_column_name(col_name: str) -> str:
+    """
+    Normalizes a column name by converting to lowercase, replacing spaces and
+    special characters with underscores, and removing leading/trailing underscores.
+    """
+    if not isinstance(col_name, str):
+        return str(col_name) # Or raise an error, but for now, convert to string
+
+    # Replace spaces and common special characters with underscores
+    # Allowed: alphanumeric, underscore. Replace others.
+    col_name = re.sub(r'[^\w_]+', '_', col_name, flags=re.UNICODE)
+
+    # Convert to lowercase
+    col_name = col_name.lower()
+
+    # Remove leading/trailing underscores that might result from replacements
+    col_name = col_name.strip('_')
+
+    # Replace multiple underscores with a single underscore
+    col_name = re.sub(r'_+', '_', col_name)
+
+    return col_name
