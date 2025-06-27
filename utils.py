@@ -83,6 +83,50 @@ def generate_csv_download(data):
     output.seek(0)
     return output.getvalue()
 
+# Function to create downloadable Excel - updated to accept column mapping
+def generate_excel_download(data, sheet_name='Results', column_mapping=None):
+    output = io.BytesIO()
+
+    df_to_export = data.copy()
+
+    if column_mapping:
+        # We have {normalized: original} in column_mapping.
+        # df_to_export.columns are normalized. We want to rename them to original.
+        rename_map_for_export = {
+            norm_col: orig_col
+            for norm_col, orig_col in column_mapping.items()
+            if norm_col in df_to_export.columns
+        }
+        if rename_map_for_export:
+            df_to_export.rename(columns=rename_map_for_export, inplace=True)
+
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df_to_export.to_excel(writer, index=False, sheet_name=sheet_name)
+        workbook = writer.book
+        worksheet = writer.sheets[sheet_name]
+
+        header_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#1976d2',
+            'color': 'white',
+            'border': 1,
+            'text_wrap': True,
+            'valign': 'vcenter',
+            'align': 'center'
+        })
+
+        for col_num, value in enumerate(df_to_export.columns.values): # Use df_to_export here
+            worksheet.write(0, col_num, value, header_format)
+
+        for i, col in enumerate(df_to_export.columns): # And here
+            column_width = max(df_to_export[col].astype(str).apply(len).max(), len(str(col))) + 2
+            if column_width > 50: # Cap max width
+                column_width = 50
+            worksheet.set_column(i, i, column_width)
+    output.seek(0)
+    return output
+
+
 def time_since_breach(breach_date, resolution_date=None):
     if pd.isna(breach_date):
         return None
