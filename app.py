@@ -865,6 +865,23 @@ else:
     #
     if selected == "Analysis":
         st.title("🔍 Analysis")
+
+        # Define the names of columns as they exist in df_enriched (from st.session_state.filtered_df)
+        # These were defined within enrich_data, so we define them here for use in this tab's scope.
+        triage_status_col = 'triage_status'
+        type_col = 'type' # Derived in enrich_data
+        status_col = normalize_column_name('Status') # Populated in enrich_data
+        ticket_number_col = normalize_column_name('Ticket Number') # Derived in enrich_data (name normalized)
+        case_id_col_norm = normalize_column_name('Case Id')
+        current_user_id_col_norm = normalize_column_name('Current User Id')
+        case_start_date_col_norm = normalize_column_name('Case Start Date')
+        age_days_col = 'age_days' # Derived in enrich_data
+        last_note_col = normalize_column_name('Last Note')
+        last_note_date_col = normalize_column_name('Last Note Date') # Used for 'Created Today'
+        created_today_col = 'created_today' # Derived in enrich_data
+        last_update_col = normalize_column_name('Last Update') # Populated in enrich_data
+        breach_passed_col = normalize_column_name('Breach Passed') # Populated in enrich_data
+        case_count_col = 'case_count' # Derived in enrich_data
         
         # Adjusted "Last data update" display
         if st.session_state.get('last_upload_time'):
@@ -1241,16 +1258,23 @@ else:
     #
     elif selected == "SLA Breach":
         st.title("⚠️ SLA Breach Analysis")
+
+        # Define normalized column names as they exist in df_enriched (from st.session_state.filtered_df)
+        breach_passed_col = normalize_column_name('Breach Passed')
+        status_col = normalize_column_name('Status')
+        type_col = 'type' # Derived in enrich_data
+        case_id_col_norm = normalize_column_name('Case Id')
+        current_user_id_col_norm = normalize_column_name('Current User Id')
+        case_start_date_col_norm = normalize_column_name('Case Start Date')
+        ticket_number_col = normalize_column_name('Ticket Number')
+        last_update_col = normalize_column_name('Last Update')
+        age_days_col = 'age_days' # Derived in enrich_data
         
         # Check if either SR or Incident data is available
         if st.session_state.sr_df is None and st.session_state.incident_df is None: # This check is about data loading, not column names
             st.warning("Please upload SR Status Excel file or Incident Report Excel file to view SLA breach information.")
         else:
-            # Use normalized column names from enrich_data context
-            # breach_passed_col, status_col, type_col
-            # For display: case_id_col_norm, current_user_id_col_norm, case_start_date_col_norm, ticket_number_col, last_update_col, age_days_col_norm
-
-            if breach_passed_col in df_enriched.columns:
+            if breach_passed_col in df_enriched.columns: # df_enriched is st.session_state.filtered_df
                 breach_df = df_enriched[df_enriched[breach_passed_col] == True].copy()
                 
                 # Display summary statistics
@@ -1363,22 +1387,22 @@ else:
     #
     elif selected == "Today's SR/Incidents":
         st.title("📅 Today's New SR/Incidents")
+
+        # Define normalized column names as they exist in df_enriched (from st.session_state.filtered_df)
+        created_today_col = 'created_today' # Derived in enrich_data
+        last_note_date_col = normalize_column_name('Last Note Date')
+        triage_status_col = 'triage_status' # Derived in enrich_data
+        type_col = 'type' # Derived in enrich_data
+        current_user_id_col_norm = normalize_column_name('Current User Id')
+        case_id_col_norm = normalize_column_name('Case Id')
+        ticket_number_col = normalize_column_name('Ticket Number')
+        status_col = normalize_column_name('Status')
+        last_update_col = normalize_column_name('Last Update')
         
         # Get today's cases
         today = datetime.now().date()
-
-        # Use normalized column names from enrich_data context:
-        # created_today_col = 'created_today'
-        # last_note_date_col (normalized 'Last Note Date')
-        # triage_status_col = 'triage_status'
-        # type_col = 'type'
-        # current_user_id_col_norm (normalized 'Current User Id')
-        # case_id_col_norm (normalized 'Case Id')
-        # ticket_number_col (normalized 'Ticket Number')
-        # status_col (normalized 'Status')
-        # last_update_col (normalized 'Last Update')
         
-        if created_today_col in df_enriched.columns:
+        if created_today_col in df_enriched.columns: # df_enriched is st.session_state.filtered_df
             today_cases = df_enriched[df_enriched[created_today_col] == True].copy()
         elif last_note_date_col in df_enriched.columns: # Fallback
             today_cases = df_enriched[df_enriched[last_note_date_col].dt.date == today].copy()
