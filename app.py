@@ -1705,28 +1705,53 @@ else:
                     st.info("No incident data available to display the status pie chart.")
             else:
                 st.warning("Cannot display Percentage of Closed Incidents: 'Status' column missing from source data.")
+
         # --- Team Assignment Distribution ---
-        st.markdown("---") # Visual separator
-        st.subheader("Team Assignment Distribution")
-        if not filtered_overview_df.empty:
-            if 'Team' in filtered_overview_df.columns:
-                team_distribution_data = filtered_overview_df['Team'].value_counts()
-                
-                if not team_distribution_data.empty:
-                    fig_team_dist = px.pie(
-                        team_distribution_data,
-                        names=team_distribution_data.index,
-                        values=team_distribution_data.values,
-                        title="Distribution of Incidents by Team"
-                    )
-                    fig_team_dist.update_traces(textposition='inside', textinfo='percent+label')
-                    st.plotly_chart(fig_team_dist, use_container_width=True)
+        # Use columns to display charts side-by-side
+        chart_col1, chart_col2 = st.columns(2)
+
+        with chart_col1:
+            st.subheader("Percentage of Closed Incidents")
+            if 'Status' in overview_df.columns: # Ensure 'Status' column exists in the original overview_df
+                closed_count = overview_df[overview_df['Status'] == 'Closed'].shape[0]
+                total_incidents = overview_df.shape[0]
+                other_count = total_incidents - closed_count
+
+                if total_incidents > 0: # Avoid division by zero if no incidents
+                    chart_data = pd.DataFrame({
+                        'Status Category': ['Closed', 'Open/Other'],
+                        'Count': [closed_count, other_count]
+                    })
+                    fig_status_pie = px.pie(chart_data, names='Status Category', values='Count', title='Percentage of Closed Incidents')
+                    st.plotly_chart(fig_status_pie, use_container_width=True)
                 else:
-                    st.info("No team assignment data to display based on current filters.")
+                    st.info("No incident data available to display the status pie chart.")
             else:
-                st.warning("Cannot display Team Assignment Distribution: 'Team' column not found in the data.")
-        else:
-            st.info("No data available to display for Team Assignment Distribution based on current filters.")
+                st.warning("Cannot display Percentage of Closed Incidents: 'Status' column missing from source data.")
+
+        with chart_col2:
+            st.subheader("Team Assignment Distribution")
+            if not filtered_overview_df.empty:
+                if 'Team' in filtered_overview_df.columns:
+                    team_distribution_data = filtered_overview_df['Team'].value_counts()
+
+                    if not team_distribution_data.empty:
+                        fig_team_dist = px.pie(
+                            team_distribution_data,
+                            names=team_distribution_data.index,
+                            values=team_distribution_data.values,
+                            title="Distribution of Incidents by Team"
+                        )
+                        fig_team_dist.update_traces(textposition='inside', textinfo='percent+label')
+                        st.plotly_chart(fig_team_dist, use_container_width=True)
+                    else:
+                        st.info("No team assignment data to display based on current filters.")
+                else:
+                    st.warning("Cannot display Team Assignment Distribution: 'Team' column not found in the data.")
+            else:
+                st.info("No data available to display for Team Assignment Distribution based on current filters.")
+
+        st.markdown("---") # Visual separator
         # --- Incidents by Team and Status Table ---
         st.markdown("---") # Visual separator
         st.subheader("Incidents by Team and Status")
