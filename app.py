@@ -1687,47 +1687,29 @@ else:
             # Calculate team and status totals
             team_status_summary_df = calculate_team_status_summary(filtered_overview_df)
 
-                    # --- Pie Chart for Closed Incidents ---
-            st.markdown("---") # Visual separator before the pie chart
-            if 'Status' in overview_df.columns: # Ensure 'Status' column exists in the original overview_df
-                closed_count = overview_df[overview_df['Status'] == 'Closed'].shape[0]
-                total_incidents = overview_df.shape[0]
-                other_count = total_incidents - closed_count
-
-                if total_incidents > 0: # Avoid division by zero if no incidents
-                    chart_data = pd.DataFrame({
-                        'Status Category': ['Closed', 'Open/Other'],
-                        'Count': [closed_count, other_count]
-                    })
-                    fig_status_pie = px.pie(chart_data, names='Status Category', values='Count', title='Percentage of Closed Incidents')
-                    st.plotly_chart(fig_status_pie, use_container_width=True)
-                else:
-                    st.info("No incident data available to display the status pie chart.")
-            else:
-                st.warning("Cannot display Percentage of Closed Incidents: 'Status' column missing from source data.")
-
-        # --- Team Assignment Distribution ---
+        # --- Charts Display: Percentage of Closed Incidents and Team Assignment Distribution ---
         # Use columns to display charts side-by-side
         chart_col1, chart_col2 = st.columns(2)
 
         with chart_col1:
             st.subheader("Percentage of Closed Incidents")
-            if 'Status' in overview_df.columns: # Ensure 'Status' column exists in the original overview_df
+            if 'Status' in overview_df.columns: # Ensure 'Status' column exists in the original overview_df for this chart
                 closed_count = overview_df[overview_df['Status'] == 'Closed'].shape[0]
                 total_incidents = overview_df.shape[0]
                 other_count = total_incidents - closed_count
 
                 if total_incidents > 0: # Avoid division by zero if no incidents
-                    chart_data = pd.DataFrame({
+                    chart_data_status_pie = pd.DataFrame({ # Use a unique variable name for this chart's data
                         'Status Category': ['Closed', 'Open/Other'],
                         'Count': [closed_count, other_count]
                     })
-                    fig_status_pie = px.pie(chart_data, names='Status Category', values='Count', title='Percentage of Closed Incidents')
-                    st.plotly_chart(fig_status_pie, use_container_width=True)
+                    # Pass a unique key to this plotly_chart instance
+                    fig_status_pie = px.pie(chart_data_status_pie, names='Status Category', values='Count', title='Percentage of Closed Incidents')
+                    st.plotly_chart(fig_status_pie, use_container_width=True, key="status_pie_chart")
                 else:
                     st.info("No incident data available to display the status pie chart.")
             else:
-                st.warning("Cannot display Percentage of Closed Incidents: 'Status' column missing from source data.")
+                st.warning("Cannot display Percentage of Closed Incidents: 'Status' column missing from source data (for status pie chart).")
 
         with chart_col2:
             st.subheader("Team Assignment Distribution")
