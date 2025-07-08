@@ -1886,10 +1886,11 @@ else:
                 if not displayable_breached_incidents_df.empty:
                     st.markdown(f"Found **{len(displayable_breached_incidents_df)}** incidents with a valid breach date (before applying week/day filters).")
 
-                    # --- Week and Day Filters for Detailed Table ---
-                    filter_col1, filter_col2 = st.columns(2)
+                    # --- Week, Day, and Category Filters for Detailed Table ---
+                    filter_col1, filter_col2, filter_col3 = st.columns(3) # Added a third column for Category
                     selected_week_displays_breach = []
                     selected_day_breach = None
+                    selected_categories_breach = []
 
                     with filter_col1:
                         if 'weekly_breached_incidents_df' in locals() and not weekly_breached_incidents_df.empty and 'WeekDisplay' in weekly_breached_incidents_df.columns:
@@ -1922,6 +1923,31 @@ else:
                             )
                         else:
                             st.caption("Day filter not available (no valid breach dates).")
+
+                    with filter_col3: # New column for Category filter
+                        category_column_name = 'Category' # Assumed column name
+                        if category_column_name in displayable_breached_incidents_df.columns:
+                            unique_categories = sorted(displayable_breached_incidents_df[category_column_name].dropna().unique())
+                            if unique_categories:
+                                ALL_CATEGORIES_OPTION = "[All Categories]"
+                                category_options_breach = [ALL_CATEGORIES_OPTION] + unique_categories
+
+                                if 'breach_category_filter_selection' not in st.session_state:
+                                    st.session_state.breach_category_filter_selection = [ALL_CATEGORIES_OPTION]
+
+                                selected_categories_breach = st.multiselect(
+                                    f"Filter by {category_column_name}:",
+                                    options=category_options_breach,
+                                    default=st.session_state.breach_category_filter_selection,
+                                    key="multiselect_breach_category"
+                                )
+                                st.session_state.breach_category_filter_selection = selected_categories_breach
+                            else:
+                                st.caption(f"No categories found in '{category_column_name}' column.")
+                                selected_categories_breach = [ALL_CATEGORIES_OPTION] # Corrected default
+                        else:
+                            st.caption(f"'{category_column_name}' column not found for filtering.")
+                            selected_categories_breach = [ALL_CATEGORIES_OPTION] # Corrected default
 
                     # Prepare for filtering - this df will be further filtered
                     # The original displayable_breached_incidents_df is kept as the base for filtering
@@ -1961,9 +1987,20 @@ else:
                                     filtered_detailed_breached_incidents_df['Year-Week'].isin(selected_year_weeks_breach)
                                 ]
                     # If "All Weeks" is selected (and no day filter), no further filtering by week is needed.
-                    # filtered_detailed_breached_incidents_df already contains all displayable breached incidents.
+                    # filtered_detailed_breached_incidents_df already contains all displayable breached incidents up to this point.
 
-                    # Update the count message after filtering
+                    # Apply Category Filter (after day/week filters)
+                    # Assumed 'Category' is the column_name and ALL_CATEGORIES_OPTION is defined
+                    if selected_categories_breach and ALL_CATEGORIES_OPTION not in selected_categories_breach:
+                        if category_column_name in filtered_detailed_breached_incidents_df.columns:
+                            filtered_detailed_breached_incidents_df = filtered_detailed_breached_incidents_df[
+                                filtered_detailed_breached_incidents_df[category_column_name].isin(selected_categories_breach)
+                            ]
+                    # If ALL_CATEGORIES_OPTION is present, or selected_categories_breach is empty, no category filtering is applied.
+                    # This also handles the case where the category column might have been missing,
+                    # as selected_categories_breach would default to [ALL_CATEGORIES_OPTION].
+
+                    # Update the count message after all filters
                     st.markdown(f"Displaying **{len(filtered_detailed_breached_incidents_df)}** breached incidents based on current filters.")
 
 
