@@ -19,6 +19,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Import the new function from utils
+from utils import calculate_incidents_breached_per_week
+
 # Custom CSS for styling
 def set_custom_theme():
     st.markdown("""
@@ -464,6 +467,35 @@ with st.sidebar:
                 overview_df = incident_df.copy()
                 if "Customer" in overview_df.columns:
                     overview_df.rename(columns={"Customer": "Creator"}, inplace=True)
+                # Attempt to parse 'Breach Date' right after loading incident_overview_df
+                if 'Breach Date' in overview_df.columns:
+                    col_name = 'Breach Date'
+                    original_series = overview_df[col_name].copy().astype(str) # Work with string representations
+                    overview_df[col_name] = pd.NaT # Initialize with NaT
+
+                    # Step 1: Try specific known formats (day-first)
+                    formats_to_try = ['%d/%m/%Y %H:%M:%S', '%d/%m/%y %H:%M', '%d/%m/%Y']
+                    for fmt in formats_to_try:
+                        mask = overview_df[col_name].isnull() & original_series.notnull()
+                        if not mask.any(): break
+                        parsed_subset = pd.to_datetime(original_series[mask], format=fmt, errors='coerce')
+                        overview_df.loc[mask, col_name] = overview_df.loc[mask, col_name].fillna(parsed_subset)
+
+                    # Step 2: Try standard parsing (handles ISO, etc.) for remaining nulls
+                    mask = overview_df[col_name].isnull() & original_series.notnull()
+                    if mask.any():
+                        iso_parsed = pd.to_datetime(original_series[mask], errors='coerce')
+                        overview_df.loc[mask, col_name] = overview_df.loc[mask, col_name].fillna(iso_parsed)
+
+                    # Step 3: Try general dayfirst=True parsing for remaining nulls
+                    mask = overview_df[col_name].isnull() & original_series.notnull()
+                    if mask.any():
+                        dayfirst_gen_parsed = pd.to_datetime(original_series[mask], errors='coerce', dayfirst=True)
+                        overview_df.loc[mask, col_name] = overview_df.loc[mask, col_name].fillna(dayfirst_gen_parsed)
+
+                    # Optionally, log how many failed to parse if necessary, or notify user.
+                    # For now, we proceed with successfully parsed dates.
+
                 st.session_state.incident_overview_df = overview_df
                 st.success(f"Incident Overview data loaded: {len(overview_df)} records, {len(overview_df.columns)} columns.")
             else:
@@ -782,8 +814,31 @@ else:
 
         if 'Last Update' in df_enriched.columns:
             df_enriched['Last Update'] = pd.to_datetime(df_enriched['Last Update'], errors='coerce')
+
         if 'Breach Date' in df_enriched.columns:
-            df_enriched['Breach Date'] = pd.to_datetime(df_enriched['Breach Date'], errors='coerce')
+            col_name_en = 'Breach Date'
+            original_series_en = df_enriched[col_name_en].copy().astype(str)
+            df_enriched[col_name_en] = pd.NaT
+
+            # Step 1: Try specific known formats (day-first)
+            formats_to_try = ['%d/%m/%Y %H:%M:%S', '%d/%m/%y %H:%M', '%d/%m/%Y']
+            for fmt in formats_to_try:
+                mask_en = df_enriched[col_name_en].isnull() & original_series_en.notnull()
+                if not mask_en.any(): break
+                parsed_subset_en = pd.to_datetime(original_series_en[mask_en], format=fmt, errors='coerce')
+                df_enriched.loc[mask_en, col_name_en] = df_enriched.loc[mask_en, col_name_en].fillna(parsed_subset_en)
+
+            # Step 2: Try standard parsing (handles ISO, etc.) for remaining nulls
+            mask_en = df_enriched[col_name_en].isnull() & original_series_en.notnull()
+            if mask_en.any():
+                iso_parsed_en = pd.to_datetime(original_series_en[mask_en], errors='coerce')
+                df_enriched.loc[mask_en, col_name_en] = df_enriched.loc[mask_en, col_name_en].fillna(iso_parsed_en)
+
+            # Step 3: Try general dayfirst=True parsing for remaining nulls
+            mask_en = df_enriched[col_name_en].isnull() & original_series_en.notnull()
+            if mask_en.any():
+                dayfirst_gen_parsed_en = pd.to_datetime(original_series_en[mask_en], errors='coerce', dayfirst=True)
+                df_enriched.loc[mask_en, col_name_en] = df_enriched.loc[mask_en, col_name_en].fillna(dayfirst_gen_parsed_en)
 
         if 'Ticket Number' in df_enriched.columns and 'Type' in df_enriched.columns:
             valid_ticket_mask = df_enriched['Ticket Number'].notna() & df_enriched['Type'].notna()
@@ -1734,8 +1789,174 @@ else:
                 st.info("No data available to display for Team Assignment Distribution based on current filters.")
 
         st.markdown("---") # Visual separator
-        # --- Incidents by Team and Status Table ---
+
+        # --- Incidents Breached Per Week Graph ---
+        st.subheader("Incidents Breached Per Week")
+        if 'incident_overview_df' in st.session_state and st.session_state.incident_overview_df is not None and not st.session_state.incident_overview_df.empty:
+            # Make a copy to avoid modifying the session state DataFrame directly during processing
+            inc_breach_df_source = st.session_state.incident_overview_df.copy()
+
+            if 'Breach Date' in inc_breach_df_source.columns:
+                # Ensure 'Breach Date' is present before calling the utility function
+                # The utility function itself handles parsing and errors for 'Breach Date'
+                weekly_breached_incidents_df = calculate_incidents_breached_per_week(inc_breach_df_source, breach_date_col='Breach Date')
+
+                if not weekly_breached_incidents_df.empty:
+                    fig_incidents_breached = px.bar(
+                        weekly_breached_incidents_df,
+                        x='WeekDisplay',
+                        y='Count',
+                        title="Incidents Breached Per Week",
+                        labels={'Count': 'Number of Incidents Breached', 'WeekDisplay': 'Week Period'},
+                        text='Count'
+                    )
+                    fig_incidents_breached.update_traces(texttemplate='%{text}', textposition='outside')
+                    fig_incidents_breached.update_layout(xaxis_title='Week Period', yaxis_title="Number of Incidents Breached")
+                    st.plotly_chart(fig_incidents_breached, use_container_width=True)
+                else:
+                    st.info("No data available to display the 'Incidents Breached Per Week' chart. This may be due to missing or invalid 'Breach Date' values in the uploaded incident data.")
+            else:
+                st.warning("The 'Breach Date' column is missing from the uploaded incident data. Cannot generate 'Incidents Breached Per Week' chart.")
+        else:
+            st.info("Incident data not loaded or empty. Please upload incident data to see the breached incidents chart.")
+
         st.markdown("---") # Visual separator
+
+        # --- Table for Incidents Breached Per Week (Aggregated) ---
+        st.subheader("Incidents Breached Per Week (Aggregated Data)")
+        if 'weekly_breached_incidents_df' in locals() and not weekly_breached_incidents_df.empty:
+            st.dataframe(weekly_breached_incidents_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No aggregated weekly breach data to display. This may be due to missing or invalid 'Breach Date' values in the uploaded incident data, or no incidents breached.")
+
+        st.markdown("---") # Visual separator
+
+        # --- Detailed Breached Incidents Table with Column Selection ---
+        st.subheader("Detailed Breached Incidents")
+        if 'incident_overview_df' in st.session_state and \
+           st.session_state.incident_overview_df is not None and \
+           not st.session_state.incident_overview_df.empty:
+
+            detailed_breach_source_df = st.session_state.incident_overview_df.copy()
+
+            if 'Breach Date' in detailed_breach_source_df.columns:
+                col_name_detail = 'Breach Date'
+                parsed_col_name_detail = 'Breach Date Parsed'
+                original_series_detail = detailed_breach_source_df[col_name_detail].copy().astype(str)
+                detailed_breach_source_df[parsed_col_name_detail] = pd.NaT
+
+                # Step 1: Try specific known formats (day-first)
+                formats_to_try = ['%d/%m/%Y %H:%M:%S', '%d/%m/%y %H:%M', '%d/%m/%Y']
+                for fmt in formats_to_try:
+                    mask_detail = detailed_breach_source_df[parsed_col_name_detail].isnull() & original_series_detail.notnull()
+                    if not mask_detail.any(): break
+                    parsed_subset_detail = pd.to_datetime(original_series_detail[mask_detail], format=fmt, errors='coerce')
+                    detailed_breach_source_df.loc[mask_detail, parsed_col_name_detail] = detailed_breach_source_df.loc[mask_detail, parsed_col_name_detail].fillna(parsed_subset_detail)
+
+                # Step 2: Try standard parsing (handles ISO, etc.) for remaining nulls
+                mask_detail = detailed_breach_source_df[parsed_col_name_detail].isnull() & original_series_detail.notnull()
+                if mask_detail.any():
+                    iso_parsed_detail = pd.to_datetime(original_series_detail[mask_detail], errors='coerce')
+                    detailed_breach_source_df.loc[mask_detail, parsed_col_name_detail] = detailed_breach_source_df.loc[mask_detail, parsed_col_name_detail].fillna(iso_parsed_detail)
+
+                # Step 3: Try general dayfirst=True parsing for remaining nulls
+                mask_detail = detailed_breach_source_df[parsed_col_name_detail].isnull() & original_series_detail.notnull()
+                if mask_detail.any():
+                    dayfirst_gen_parsed_detail = pd.to_datetime(original_series_detail[mask_detail], errors='coerce', dayfirst=True)
+                    detailed_breach_source_df.loc[mask_detail, parsed_col_name_detail] = detailed_breach_source_df.loc[mask_detail, parsed_col_name_detail].fillna(dayfirst_gen_parsed_detail)
+
+                # Filter for incidents that have a valid (parsed) breach date
+                all_breached_incidents_df = detailed_breach_source_df.dropna(subset=['Breach Date Parsed'])
+
+                # We can drop the temporary parsed column if we show the original 'Breach Date'
+                # However, it might be useful to keep the parsed one for sorting or display consistency.
+                # For now, let's assume we want to display columns from the original df structure.
+                # So, we use 'all_breached_incidents_df' to identify rows, but select columns from 'detailed_breach_source_df' (before dropping 'Breach Date Parsed') or even better, from original `overview_df` by index.
+
+                # Let's use the indices from `all_breached_incidents_df` to filter the original `st.session_state.incident_overview_df`
+                # to ensure we are showing original data and all its columns.
+
+                displayable_breached_incidents_df = st.session_state.incident_overview_df.loc[all_breached_incidents_df.index]
+
+
+                if not displayable_breached_incidents_df.empty:
+                    st.markdown(f"Found **{len(displayable_breached_incidents_df)}** incidents with a valid breach date.")
+
+                    all_breached_incident_columns = displayable_breached_incidents_df.columns.tolist()
+                    SELECT_ALL_COLS_BREACH_DETAIL_OPTION = "[Select All Columns for Breached Incidents]"
+
+                    default_breach_detail_cols = ["Incident", "Creator", "Team", "Priority", "Status", "Breach Date"] # Key columns
+                    # Ensure default columns exist in the dataframe
+                    actual_default_breach_detail_cols = [col for col in default_breach_detail_cols if col in all_breached_incident_columns]
+
+                    if 'breached_incident_detail_cols_controlled' not in st.session_state:
+                        st.session_state.selected_breach_detail_display_cols = list(actual_default_breach_detail_cols)
+                        if not actual_default_breach_detail_cols and all_breached_incident_columns:
+                            st.session_state.selected_breach_detail_display_cols = list(all_breached_incident_columns)
+                            st.session_state.breached_incident_detail_cols_controlled = [SELECT_ALL_COLS_BREACH_DETAIL_OPTION]
+                        elif all_breached_incident_columns and set(actual_default_breach_detail_cols) == set(all_breached_incident_columns):
+                            st.session_state.breached_incident_detail_cols_controlled = [SELECT_ALL_COLS_BREACH_DETAIL_OPTION]
+                        elif not all_breached_incident_columns:
+                            st.session_state.selected_breach_detail_display_cols = []
+                            st.session_state.breached_incident_detail_cols_controlled = []
+                        else:
+                             st.session_state.breached_incident_detail_cols_controlled = list(actual_default_breach_detail_cols)
+
+                    options_for_breach_detail_cols_widget = [SELECT_ALL_COLS_BREACH_DETAIL_OPTION] + all_breached_incident_columns
+                    raw_breach_detail_cols_selection = st.multiselect(
+                        "Select columns for Detailed Breached Incidents table:",
+                        options=options_for_breach_detail_cols_widget,
+                        default=st.session_state.breached_incident_detail_cols_controlled,
+                        key="multi_select_breached_incident_detail_columns"
+                    )
+
+                    # Logic for "Select All" option for breached incident detail columns
+                    prev_widget_state_breach_detail = list(st.session_state.breached_incident_detail_cols_controlled)
+                    current_select_all_breach_detail = SELECT_ALL_COLS_BREACH_DETAIL_OPTION in raw_breach_detail_cols_selection
+                    selected_actual_items_breach_detail = [c for c in raw_breach_detail_cols_selection if c != SELECT_ALL_COLS_BREACH_DETAIL_OPTION]
+
+                    user_clicked_select_all_breach_detail = current_select_all_breach_detail and (SELECT_ALL_COLS_BREACH_DETAIL_OPTION not in prev_widget_state_breach_detail)
+                    user_clicked_unselect_all_breach_detail = (not current_select_all_breach_detail) and (SELECT_ALL_COLS_BREACH_DETAIL_OPTION in prev_widget_state_breach_detail and len(prev_widget_state_breach_detail) == 1)
+
+                    if user_clicked_select_all_breach_detail:
+                        st.session_state.selected_breach_detail_display_cols = list(all_breached_incident_columns)
+                        st.session_state.breached_incident_detail_cols_controlled = [SELECT_ALL_COLS_BREACH_DETAIL_OPTION]
+                    elif user_clicked_unselect_all_breach_detail:
+                        st.session_state.selected_breach_detail_display_cols = []
+                        st.session_state.breached_incident_detail_cols_controlled = []
+                    else:
+                        if current_select_all_breach_detail:
+                            if len(selected_actual_items_breach_detail) < len(all_breached_incident_columns):
+                                st.session_state.selected_breach_detail_display_cols = list(selected_actual_items_breach_detail)
+                                st.session_state.breached_incident_detail_cols_controlled = list(selected_actual_items_breach_detail)
+                            else:
+                                st.session_state.selected_breach_detail_display_cols = list(all_breached_incident_columns)
+                                st.session_state.breached_incident_detail_cols_controlled = [SELECT_ALL_COLS_BREACH_DETAIL_OPTION]
+                        else:
+                            st.session_state.selected_breach_detail_display_cols = list(selected_actual_items_breach_detail)
+                            if all_breached_incident_columns and set(selected_actual_items_breach_detail) == set(all_breached_incident_columns):
+                                st.session_state.breached_incident_detail_cols_controlled = [SELECT_ALL_COLS_BREACH_DETAIL_OPTION]
+                            else:
+                                st.session_state.breached_incident_detail_cols_controlled = list(selected_actual_items_breach_detail)
+
+                    columns_to_show_breach_detail = st.session_state.get('selected_breach_detail_display_cols', [])
+                    if not columns_to_show_breach_detail and all_breached_incident_columns : # If selection is empty, show defaults or all
+                         columns_to_show_breach_detail = actual_default_breach_detail_cols if actual_default_breach_detail_cols else all_breached_incident_columns
+
+
+                    if columns_to_show_breach_detail:
+                        st.dataframe(displayable_breached_incidents_df[columns_to_show_breach_detail], hide_index=True, use_container_width=True)
+                    else:
+                        st.info("No columns selected for the detailed breached incidents table, or no breached incidents with valid data.")
+                else:
+                    st.info("No incidents found with a valid 'Breach Date' in the uploaded data.")
+            else:
+                st.warning("The 'Breach Date' column is missing from the uploaded incident data. Cannot display detailed breached incidents.")
+        else:
+            st.info("Incident data not loaded or empty. Please upload incident data to see detailed breached incidents.")
+
+        st.markdown("---") # Visual separator
+        # --- Incidents by Team and Status Table ---
         st.subheader("Incidents by Team and Status")
         # Check if 'Team' or 'Status' column was missing when team_status_summary_df was created.
         # This check is based on the columns available in filtered_overview_df, which was used to create team_status_summary_df.
