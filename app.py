@@ -1963,11 +1963,14 @@ else:
                     st.markdown(f"Displaying **{len(filtered_detailed_breached_incidents_df)}** '{pap_category_value}' breached incidents based on current filters.")
 
 
-                    all_breached_incident_columns = filtered_detailed_breached_incidents_df.columns.tolist()
+                    all_breached_incident_columns = filtered_detailed_breached_incidents_df.columns.tolist() # This will include 'Year-Week' if present
                     SELECT_ALL_COLS_BREACH_DETAIL_OPTION = "[Select All Columns for Breached Incidents]"
 
-                    default_breach_detail_cols = ["Incident", "Creator", "Team", "Priority", "Status", "Breach Date"] # Key columns
-                    # Ensure default columns exist in the dataframe
+                    # Add 'Year-Week' to default columns if it exists in the source
+                    default_breach_detail_cols = ["Incident", "Creator", "Team", "Priority", "Status", "Breach Date"]
+                    if 'Year-Week' in all_breached_incident_columns:
+                        default_breach_detail_cols.append('Year-Week')
+
                     actual_default_breach_detail_cols = [col for col in default_breach_detail_cols if col in all_breached_incident_columns]
 
                     if 'breached_incident_detail_cols_controlled' not in st.session_state:
@@ -2021,25 +2024,23 @@ else:
                                 st.session_state.breached_incident_detail_cols_controlled = list(selected_actual_items_breach_detail)
 
                     columns_to_show_breach_detail = st.session_state.get('selected_breach_detail_display_cols', [])
-                    if not columns_to_show_breach_detail and all_breached_incident_columns : # If selection is empty, show defaults or all
-                         columns_to_show_breach_detail = actual_default_breach_detail_cols if actual_default_breach_detail_cols else [col for col in all_breached_incident_columns if col != 'Year-Week']
 
+                    # If the selection is empty (e.g., user unselected everything, or first run before defaults fully kick in),
+                    # default to actual_default_breach_detail_cols.
+                    # If actual_default_breach_detail_cols is also empty (e.g. no columns in df), then show all available columns.
+                    # This ensures something is always shown if there are columns.
+                    if not columns_to_show_breach_detail:
+                        if actual_default_breach_detail_cols:
+                            columns_to_show_breach_detail = actual_default_breach_detail_cols
+                        elif all_breached_incident_columns: # Fallback to all if defaults are somehow empty but columns exist
+                            columns_to_show_breach_detail = all_breached_incident_columns
+                        # If all_breached_incident_columns is also empty, it will be handled by the next 'if'
 
                     if columns_to_show_breach_detail:
-                        # Display the potentially filtered dataframe: filtered_detailed_breached_incidents_df
-                        # And ensure 'Year-Week' is not in the list of selected columns by default if it was added temporarily
-                        cols_to_actually_display = [col for col in columns_to_show_breach_detail if col != 'Year-Week']
-                        if not cols_to_actually_display and 'Year-Week' in columns_to_show_breach_detail and len(columns_to_show_breach_detail) == 1:
-                            # If only 'Year-Week' was "selected" (e.g. by select all), show all original columns instead
-                             cols_to_actually_display = [col for col in all_breached_incident_columns if col != 'Year-Week']
-                        elif not cols_to_actually_display and columns_to_show_breach_detail : # If selection led to empty after removing Year-Week
-                             cols_to_actually_display = [col for col in all_breached_incident_columns if col != 'Year-Week']
-
-
-                        if cols_to_actually_display:
-                             st.dataframe(filtered_detailed_breached_incidents_df[cols_to_actually_display], hide_index=True, use_container_width=True)
-                        else: # Fallback if still no columns (e.g. original df had only Year-Week or was empty)
-                             st.info("No data or columns available to display for detailed breached incidents.")
+                        # The columns_to_show_breach_detail now directly reflects user's choice or a valid default, including 'Year-Week' if selected/defaulted.
+                        st.dataframe(filtered_detailed_breached_incidents_df[columns_to_show_breach_detail], hide_index=True, use_container_width=True)
+                    else: # This means filtered_detailed_breached_incidents_df might be empty or had no columns
+                        st.info("No data or columns available to display for detailed breached incidents.")
                     else:
                         st.info("No columns selected for the detailed breached incidents table, or no breached incidents with valid data.")
                 else: # This else refers to: if not displayable_breached_incidents_df.empty (before filtering for table display)
