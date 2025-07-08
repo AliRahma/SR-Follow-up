@@ -1822,15 +1822,6 @@ else:
 
         st.markdown("---") # Visual separator
 
-        # --- Table for Incidents Breached Per Week (Aggregated) ---
-        st.subheader("Incidents Breached Per Week (Aggregated Data)")
-        if 'weekly_breached_incidents_df' in locals() and not weekly_breached_incidents_df.empty:
-            st.dataframe(weekly_breached_incidents_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("No aggregated weekly breach data to display. This may be due to missing or invalid 'Breach Date' values in the uploaded incident data, or no incidents breached.")
-
-        st.markdown("---") # Visual separator
-
         # --- Detailed Breached Incidents Table with Column Selection ---
         st.subheader("Detailed Breached Incidents")
         if 'incident_overview_df' in st.session_state and \
@@ -1876,13 +1867,107 @@ else:
                 # Let's use the indices from `all_breached_incidents_df` to filter the original `st.session_state.incident_overview_df`
                 # to ensure we are showing original data and all its columns.
 
-                displayable_breached_incidents_df = st.session_state.incident_overview_df.loc[all_breached_incidents_df.index]
+                displayable_breached_incidents_df = st.session_state.incident_overview_df.loc[all_breached_incidents_df.index].copy() # Use .copy() to avoid SettingWithCopyWarning
+
+                # Ensure 'Breach Date' is datetime for further operations (like deriving Year-Week or day filtering)
+                # This should already be the case due to earlier parsing, but explicitly ensuring it here if it's re-read or copied.
+                if 'Breach Date' in displayable_breached_incidents_df.columns:
+                    displayable_breached_incidents_df['Breach Date'] = pd.to_datetime(displayable_breached_incidents_df['Breach Date'], errors='coerce')
+                    # Add 'Year-Week' column for filtering, if 'Breach Date' is valid datetime
+                    if pd.api.types.is_datetime64_any_dtype(displayable_breached_incidents_df['Breach Date']):
+                        displayable_breached_incidents_df['Year-Week'] = displayable_breached_incidents_df['Breach Date'].dt.strftime('%G-W%V')
+                    else:
+                        # Fallback if 'Breach Date' is not datetime (should not happen if parsing worked)
+                        displayable_breached_incidents_df['Year-Week'] = None
+                else:
+                     displayable_breached_incidents_df['Year-Week'] = None # Ensure column exists even if 'Breach Date' is missing
 
 
                 if not displayable_breached_incidents_df.empty:
-                    st.markdown(f"Found **{len(displayable_breached_incidents_df)}** incidents with a valid breach date.")
+                    st.markdown(f"Found **{len(displayable_breached_incidents_df)}** incidents with a valid breach date (before applying week/day filters).")
 
-                    all_breached_incident_columns = displayable_breached_incidents_df.columns.tolist()
+                    # --- Week and Day Filters for Detailed Table ---
+                    filter_col1, filter_col2 = st.columns(2)
+                    selected_week_displays_breach = []
+                    selected_day_breach = None
+
+                    with filter_col1:
+                        if 'weekly_breached_incidents_df' in locals() and not weekly_breached_incidents_df.empty and 'WeekDisplay' in weekly_breached_incidents_df.columns:
+                            week_options_breach = ["All Weeks"] + weekly_breached_incidents_df['WeekDisplay'].unique().tolist()
+                            # Ensure session state for this multiselect is initialized if not present
+                            if 'breach_week_filter_selection' not in st.session_state:
+                                st.session_state.breach_week_filter_selection = ["All Weeks"]
+
+                            selected_week_displays_breach = st.multiselect(
+                                "Filter by Week Period (Breach Date):",
+                                options=week_options_breach,
+                                default=st.session_state.breach_week_filter_selection,
+                                key="multiselect_breach_week_period"
+                            )
+                            # Update session state with current selection
+                            st.session_state.breach_week_filter_selection = selected_week_displays_breach
+                        else:
+                            st.caption("Week filter not available (no weekly breach data).")
+
+                    with filter_col2:
+                        if 'Breach Date' in displayable_breached_incidents_df.columns and not displayable_breached_incidents_df['Breach Date'].dropna().empty:
+                            min_breach_date = displayable_breached_incidents_df['Breach Date'].dropna().min().date()
+                            max_breach_date = displayable_breached_incidents_df['Breach Date'].dropna().max().date()
+                            selected_day_breach = st.date_input(
+                                "Filter by Specific Day (Breach Date):",
+                                value=None, # Default to no day selected
+                                min_value=min_breach_date,
+                                max_value=max_breach_date,
+                                key="date_input_breach_specific_day"
+                            )
+                        else:
+                            st.caption("Day filter not available (no valid breach dates).")
+
+                    # Prepare for filtering - this df will be further filtered
+                    # The original displayable_breached_incidents_df is kept as the base for filtering
+                    filtered_detailed_breached_incidents_df = displayable_breached_incidents_df.copy() # Start with all displayable breached incidents
+
+                    # Apply Day Filter (takes precedence)
+                    if selected_day_breach:
+                        if 'Breach Date' in filtered_detailed_breached_incidents_df.columns and \
+                           pd.api.types.is_datetime64_any_dtype(filtered_detailed_breached_incidents_df['Breach Date']):
+                            filtered_detailed_breached_incidents_df = filtered_detailed_breached_incidents_df[
+                                filtered_detailed_breached_incidents_df['Breach Date'].dt.date == selected_day_breach
+                            ]
+                            # If day filter is active, clear week filter selection in session state to avoid confusion, default to "All Weeks"
+                            st.session_state.breach_week_filter_selection = ["All Weeks"]
+                            # Potentially re-run here if Streamlit's execution flow requires it for the multiselect to update visually,
+                            # or rely on the user seeing the table update and understanding the day filter is active.
+                            # For now, we'll assume Streamlit handles widget state updates reasonably across runs.
+
+                    # Apply Week Filter (if no day filter is active and a specific week is chosen)
+                    elif selected_week_displays_breach and "All Weeks" not in selected_week_displays_breach:
+                        if 'weekly_breached_incidents_df' in locals() and not weekly_breached_incidents_df.empty and \
+                           'Year-Week' in weekly_breached_incidents_df.columns and \
+                           'Year-Week' in filtered_detailed_breached_incidents_df.columns:
+
+                            # Create mapping from WeekDisplay to Year-Week
+                            week_map_breach = pd.Series(
+                                weekly_breached_incidents_df['Year-Week'].values,
+                                index=weekly_breached_incidents_df['WeekDisplay']
+                            ).to_dict()
+
+                            selected_year_weeks_breach = [
+                                week_map_breach[wd] for wd in selected_week_displays_breach if wd in week_map_breach
+                            ]
+
+                            if selected_year_weeks_breach: # Ensure some valid year-weeks were selected
+                                filtered_detailed_breached_incidents_df = filtered_detailed_breached_incidents_df[
+                                    filtered_detailed_breached_incidents_df['Year-Week'].isin(selected_year_weeks_breach)
+                                ]
+                    # If "All Weeks" is selected (and no day filter), no further filtering by week is needed.
+                    # filtered_detailed_breached_incidents_df already contains all displayable breached incidents.
+
+                    # Update the count message after filtering
+                    st.markdown(f"Displaying **{len(filtered_detailed_breached_incidents_df)}** breached incidents based on current filters.")
+
+
+                    all_breached_incident_columns = filtered_detailed_breached_incidents_df.columns.tolist()
                     SELECT_ALL_COLS_BREACH_DETAIL_OPTION = "[Select All Columns for Breached Incidents]"
 
                     default_breach_detail_cols = ["Incident", "Creator", "Team", "Priority", "Status", "Breach Date"] # Key columns
@@ -1941,14 +2026,27 @@ else:
 
                     columns_to_show_breach_detail = st.session_state.get('selected_breach_detail_display_cols', [])
                     if not columns_to_show_breach_detail and all_breached_incident_columns : # If selection is empty, show defaults or all
-                         columns_to_show_breach_detail = actual_default_breach_detail_cols if actual_default_breach_detail_cols else all_breached_incident_columns
+                         columns_to_show_breach_detail = actual_default_breach_detail_cols if actual_default_breach_detail_cols else [col for col in all_breached_incident_columns if col != 'Year-Week']
 
 
                     if columns_to_show_breach_detail:
-                        st.dataframe(displayable_breached_incidents_df[columns_to_show_breach_detail], hide_index=True, use_container_width=True)
+                        # Display the potentially filtered dataframe: filtered_detailed_breached_incidents_df
+                        # And ensure 'Year-Week' is not in the list of selected columns by default if it was added temporarily
+                        cols_to_actually_display = [col for col in columns_to_show_breach_detail if col != 'Year-Week']
+                        if not cols_to_actually_display and 'Year-Week' in columns_to_show_breach_detail and len(columns_to_show_breach_detail) == 1:
+                            # If only 'Year-Week' was "selected" (e.g. by select all), show all original columns instead
+                             cols_to_actually_display = [col for col in all_breached_incident_columns if col != 'Year-Week']
+                        elif not cols_to_actually_display and columns_to_show_breach_detail : # If selection led to empty after removing Year-Week
+                             cols_to_actually_display = [col for col in all_breached_incident_columns if col != 'Year-Week']
+
+
+                        if cols_to_actually_display:
+                             st.dataframe(filtered_detailed_breached_incidents_df[cols_to_actually_display], hide_index=True, use_container_width=True)
+                        else: # Fallback if still no columns (e.g. original df had only Year-Week or was empty)
+                             st.info("No data or columns available to display for detailed breached incidents.")
                     else:
                         st.info("No columns selected for the detailed breached incidents table, or no breached incidents with valid data.")
-                else:
+                else: # This else refers to: if not displayable_breached_incidents_df.empty (before filtering for table display)
                     st.info("No incidents found with a valid 'Breach Date' in the uploaded data.")
             else:
                 st.warning("The 'Breach Date' column is missing from the uploaded incident data. Cannot display detailed breached incidents.")
