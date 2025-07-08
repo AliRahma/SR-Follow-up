@@ -2025,30 +2025,39 @@ else:
 
                     columns_to_show_breach_detail = st.session_state.get('selected_breach_detail_display_cols', [])
 
-                    # If the selection is empty (e.g., user unselected everything, or first run before defaults fully kick in),
-                    # default to actual_default_breach_detail_cols.
-                    # If actual_default_breach_detail_cols is also empty (e.g. no columns in df), then show all available columns.
-                    # This ensures something is always shown if there are columns.
-                    if not columns_to_show_breach_detail:
-                        if actual_default_breach_detail_cols:
+                    if not columns_to_show_breach_detail: # If list is empty (e.g. user unselected all)
+                        if actual_default_breach_detail_cols: # Try to show defaults
                             columns_to_show_breach_detail = actual_default_breach_detail_cols
-                        elif all_breached_incident_columns: # Fallback to all if defaults are somehow empty but columns exist
+                        elif all_breached_incident_columns: # Else show all available
                             columns_to_show_breach_detail = all_breached_incident_columns
-                        # If all_breached_incident_columns is also empty, it will be handled by the next 'if'
+                        # If still empty, the next 'if' handles it
 
                     if columns_to_show_breach_detail:
-                        # The columns_to_show_breach_detail now directly reflects user's choice or a valid default, including 'Year-Week' if selected/defaulted.
                         st.dataframe(filtered_detailed_breached_incidents_df[columns_to_show_breach_detail], hide_index=True, use_container_width=True)
-                    else: # This means filtered_detailed_breached_incidents_df might be empty or had no columns
-                        st.info("No data or columns available to display for detailed breached incidents.")
-                    else:
-                        st.info("No columns selected for the detailed breached incidents table, or no breached incidents with valid data.")
-                else: # This else refers to: if not displayable_breached_incidents_df.empty (before filtering for table display)
-                    st.info("No incidents found with a valid 'Breach Date' in the uploaded data.")
+                    else: # This covers cases where filtered_detailed_breached_incidents_df is empty OR no columns ended up in columns_to_show_breach_detail
+                        st.info("No data or columns available to display for detailed breached incidents based on current filters and selections.")
+
+                # This 'else' correctly corresponds to 'if not displayable_breached_incidents_df.empty:'
+                else:
+                    st.info(f"No '{pap_category_value}' incidents with a valid breach date found to display details (after week/day filters or initially).")
+
+            # This 'else' correctly corresponds to 'if 'Breach Date' in pap_incidents_df.columns:'
+            # (or rather, the derived working_df_for_detailed_table)
             else:
-                st.warning("The 'Breach Date' column is missing from the uploaded incident data. Cannot display detailed breached incidents.")
-        else:
-            st.info("Incident data not loaded or empty. Please upload incident data to see detailed breached incidents.")
+                st.warning(f"The 'Breach Date' column is missing in the filtered '{pap_category_value}' incident data. Cannot display detailed breached incidents.")
+
+        # This 'elif' and 'else' handle cases where pap_incidents_df itself was empty from the start
+        elif not pap_incidents_df.empty and 'Breach Date' not in pap_incidents_df.columns:
+             st.warning(f"The 'Breach Date' column is missing from '{pap_category_value}' incidents. Cannot display detailed breaches.")
+        else: # pap_incidents_df is empty
+            # Check original source only if pap_incidents_df is empty
+            if 'incident_overview_df' not in st.session_state or st.session_state.incident_overview_df is None or st.session_state.incident_overview_df.empty:
+                st.info("Incident data not loaded or empty. Please upload incident data to see detailed breached incidents.")
+            # else: specific messages about why pap_incidents_df is empty (no PAP, or Category col missing) were shown earlier
+            # We can add a generic one here if needed for the detailed table context.
+            # elif not (st.session_state.incident_overview_df[pap_category_column].astype(str).str.strip().str.lower() == pap_category_value.strip().lower()).any():
+            #    st.info(f"No incidents of category '{pap_category_value}' found to display details.")
+
 
         st.markdown("---") # Visual separator
         # --- Incidents by Team and Status Table ---
