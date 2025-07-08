@@ -1886,16 +1886,15 @@ else:
                 if not displayable_breached_incidents_df.empty:
                     st.markdown(f"Found **{len(displayable_breached_incidents_df)}** incidents with a valid breach date (before applying week/day filters).")
 
-                    # --- Week, Day, and Category Filters for Detailed Table ---
-                    filter_col1, filter_col2, filter_col3 = st.columns(3) # Added a third column for Category
+                    # --- Week and Day Filters for Detailed Table (Category filter removed) ---
+                    filter_col1, filter_col2 = st.columns(2) # Reverted to 2 columns
                     selected_week_displays_breach = []
                     selected_day_breach = None
-                    selected_categories_breach = []
+                    # selected_categories_breach variable is no longer needed here
 
                     with filter_col1:
                         if 'weekly_breached_incidents_df' in locals() and not weekly_breached_incidents_df.empty and 'WeekDisplay' in weekly_breached_incidents_df.columns:
                             week_options_breach = ["All Weeks"] + weekly_breached_incidents_df['WeekDisplay'].unique().tolist()
-                            # Ensure session state for this multiselect is initialized if not present
                             if 'breach_week_filter_selection' not in st.session_state:
                                 st.session_state.breach_week_filter_selection = ["All Weeks"]
 
@@ -1905,7 +1904,6 @@ else:
                                 default=st.session_state.breach_week_filter_selection,
                                 key="multiselect_breach_week_period"
                             )
-                            # Update session state with current selection
                             st.session_state.breach_week_filter_selection = selected_week_displays_breach
                         else:
                             st.caption("Week filter not available (no weekly breach data).")
@@ -1916,7 +1914,7 @@ else:
                             max_breach_date = displayable_breached_incidents_df['Breach Date'].dropna().max().date()
                             selected_day_breach = st.date_input(
                                 "Filter by Specific Day (Breach Date):",
-                                value=None, # Default to no day selected
+                                value=None,
                                 min_value=min_breach_date,
                                 max_value=max_breach_date,
                                 key="date_input_breach_specific_day"
@@ -1924,34 +1922,8 @@ else:
                         else:
                             st.caption("Day filter not available (no valid breach dates).")
 
-                    with filter_col3: # New column for Category filter
-                        category_column_name = 'Category' # Assumed column name
-                        if category_column_name in displayable_breached_incidents_df.columns:
-                            unique_categories = sorted(displayable_breached_incidents_df[category_column_name].dropna().unique())
-                            if unique_categories:
-                                ALL_CATEGORIES_OPTION = "[All Categories]"
-                                category_options_breach = [ALL_CATEGORIES_OPTION] + unique_categories
-
-                                if 'breach_category_filter_selection' not in st.session_state:
-                                    st.session_state.breach_category_filter_selection = [ALL_CATEGORIES_OPTION]
-
-                                selected_categories_breach = st.multiselect(
-                                    f"Filter by {category_column_name}:",
-                                    options=category_options_breach,
-                                    default=st.session_state.breach_category_filter_selection,
-                                    key="multiselect_breach_category"
-                                )
-                                st.session_state.breach_category_filter_selection = selected_categories_breach
-                            else:
-                                st.caption(f"No categories found in '{category_column_name}' column.")
-                                selected_categories_breach = [ALL_CATEGORIES_OPTION] # Corrected default
-                        else:
-                            st.caption(f"'{category_column_name}' column not found for filtering.")
-                            selected_categories_breach = [ALL_CATEGORIES_OPTION] # Corrected default
-
                     # Prepare for filtering - this df will be further filtered
-                    # The original displayable_breached_incidents_df is kept as the base for filtering
-                    filtered_detailed_breached_incidents_df = displayable_breached_incidents_df.copy() # Start with all displayable breached incidents
+                    filtered_detailed_breached_incidents_df = displayable_breached_incidents_df.copy()
 
                     # Apply Day Filter (takes precedence)
                     if selected_day_breach:
@@ -1960,11 +1932,7 @@ else:
                             filtered_detailed_breached_incidents_df = filtered_detailed_breached_incidents_df[
                                 filtered_detailed_breached_incidents_df['Breach Date'].dt.date == selected_day_breach
                             ]
-                            # If day filter is active, clear week filter selection in session state to avoid confusion, default to "All Weeks"
                             st.session_state.breach_week_filter_selection = ["All Weeks"]
-                            # Potentially re-run here if Streamlit's execution flow requires it for the multiselect to update visually,
-                            # or rely on the user seeing the table update and understanding the day filter is active.
-                            # For now, we'll assume Streamlit handles widget state updates reasonably across runs.
 
                     # Apply Week Filter (if no day filter is active and a specific week is chosen)
                     elif selected_week_displays_breach and "All Weeks" not in selected_week_displays_breach:
@@ -1972,7 +1940,6 @@ else:
                            'Year-Week' in weekly_breached_incidents_df.columns and \
                            'Year-Week' in filtered_detailed_breached_incidents_df.columns:
 
-                            # Create mapping from WeekDisplay to Year-Week
                             week_map_breach = pd.Series(
                                 weekly_breached_incidents_df['Year-Week'].values,
                                 index=weekly_breached_incidents_df['WeekDisplay']
@@ -1982,26 +1949,14 @@ else:
                                 week_map_breach[wd] for wd in selected_week_displays_breach if wd in week_map_breach
                             ]
 
-                            if selected_year_weeks_breach: # Ensure some valid year-weeks were selected
+                            if selected_year_weeks_breach:
                                 filtered_detailed_breached_incidents_df = filtered_detailed_breached_incidents_df[
                                     filtered_detailed_breached_incidents_df['Year-Week'].isin(selected_year_weeks_breach)
                                 ]
-                    # If "All Weeks" is selected (and no day filter), no further filtering by week is needed.
-                    # filtered_detailed_breached_incidents_df already contains all displayable breached incidents up to this point.
-
-                    # Apply Category Filter (after day/week filters)
-                    # Assumed 'Category' is the column_name and ALL_CATEGORIES_OPTION is defined
-                    if selected_categories_breach and ALL_CATEGORIES_OPTION not in selected_categories_breach:
-                        if category_column_name in filtered_detailed_breached_incidents_df.columns:
-                            filtered_detailed_breached_incidents_df = filtered_detailed_breached_incidents_df[
-                                filtered_detailed_breached_incidents_df[category_column_name].isin(selected_categories_breach)
-                            ]
-                    # If ALL_CATEGORIES_OPTION is present, or selected_categories_breach is empty, no category filtering is applied.
-                    # This also handles the case where the category column might have been missing,
-                    # as selected_categories_breach would default to [ALL_CATEGORIES_OPTION].
+                    # Category filter logic removed here
 
                     # Update the count message after all filters
-                    st.markdown(f"Displaying **{len(filtered_detailed_breached_incidents_df)}** breached incidents based on current filters.")
+                    st.markdown(f"Displaying **{len(filtered_detailed_breached_incidents_df)}** '{pap_category_value}' breached incidents based on current filters.")
 
 
                     all_breached_incident_columns = filtered_detailed_breached_incidents_df.columns.tolist()
