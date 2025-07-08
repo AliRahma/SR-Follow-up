@@ -1481,6 +1481,10 @@ else:
     elif selected == "Incident Overview":
         st.title("📋 Incident Overview")
 
+        # Define PAP category specifics early to ensure they are in scope
+        pap_category_column = 'Category'
+        pap_category_value = 'Pension Application Platform (PAP)'
+
         SELECT_ALL_BASE_STRING = "[Select All %s]"
 
         if 'incident_overview_df' not in st.session_state or st.session_state.incident_overview_df is None or st.session_state.incident_overview_df.empty:
