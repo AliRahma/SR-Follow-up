@@ -741,7 +741,7 @@ def test_calculate_srs_created_and_closed_per_week():
     data8 = {
         'Created On': pd.to_datetime(['2023-06-01', '2023-06-02', '2023-06-03', '2023-06-04']),
         'LastModDateTime': pd.to_datetime(['2023-06-05', '2023-06-06', '2023-06-07', '2023-06-08']),
-        'Status': ['Closed  ', '  cancelled', 'APPROVAL REJECTED', 'rejected by ps','Completed']
+        'Status': ['Closed  ', '  cancelled', 'APPROVAL REJECTED', 'rejected by ps'] # Corrected: 4 elements
     }
     df8 = pd.DataFrame(data8)
     result8 = calculate_srs_created_and_closed_per_week(df8)
@@ -809,9 +809,236 @@ def test_calculate_srs_created_and_closed_per_week():
 
     print("All test_calculate_srs_created_and_closed_per_week tests passed.")
 
+
+def calculate_incidents_breached_per_week(df: pd.DataFrame, breach_date_col: str = 'Breach Date') -> pd.DataFrame:
+    """
+    Calculates the number of incidents breached per week from a DataFrame.
+
+    Args:
+        df: DataFrame containing incident data.
+        breach_date_col: The name of the column containing the breach dates.
+                         Defaults to 'Breach Date'.
+
+    Returns:
+        A DataFrame with columns ['Year-Week', 'WeekDisplay', 'Count']
+        representing the number of incidents breached per week.
+        Sorted by 'Year-Week'. Returns an empty DataFrame if the
+        breach_date_col is missing or data cannot be processed.
+    """
+    if breach_date_col not in df.columns:
+        print(f"Warning: Column '{breach_date_col}' not found in DataFrame.")
+        return pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'Count'])
+
+    processed_df = df.copy()
+
+    # Convert breach date column to datetime
+    original_breach_dates = processed_df[breach_date_col].copy()
+    # Initialize the target column with NaT to store parsed dates
+    processed_df[breach_date_col] = pd.NaT
+
+    # Step 1: Try specific known formats (day-first)
+    formats_to_try = ['%d/%m/%Y %H:%M:%S', '%d/%m/%y %H:%M', '%d/%m/%Y']
+    # Create a copy of original_breach_dates as a Series to work with
+    dates_to_parse_series = pd.Series(original_breach_dates.astype(str).values, index=original_breach_dates.index)
+
+    for fmt in formats_to_try:
+        # Only attempt to parse for rows that haven't been successfully parsed yet
+        # and had an original non-null value.
+        mask_for_this_format = processed_df[breach_date_col].isnull() & original_breach_dates.notnull()
+        if not mask_for_this_format.any():
+            break # All done or no remaining valid original strings
+
+        # Apply to_datetime on the subset of the original strings
+        parsed_subset = pd.to_datetime(dates_to_parse_series[mask_for_this_format], format=fmt, errors='coerce')
+
+        # Update the target column where parsing was successful for this format
+        processed_df.loc[mask_for_this_format, breach_date_col] = processed_df.loc[mask_for_this_format, breach_date_col].fillna(parsed_subset)
+
+    # Step 2: Try standard parsing (handles ISO, etc.) for remaining nulls
+    still_failed_mask = processed_df[breach_date_col].isnull() & original_breach_dates.notnull()
+    if still_failed_mask.any():
+        iso_parsed = pd.to_datetime(dates_to_parse_series[still_failed_mask], errors='coerce')
+        processed_df.loc[still_failed_mask, breach_date_col] = processed_df.loc[still_failed_mask, breach_date_col].fillna(iso_parsed)
+
+    # Step 3: Try general dayfirst=True parsing for remaining nulls
+    still_failed_mask = processed_df[breach_date_col].isnull() & original_breach_dates.notnull()
+    if still_failed_mask.any():
+        dayfirst_gen_parsed = pd.to_datetime(dates_to_parse_series[still_failed_mask], errors='coerce', dayfirst=True)
+        processed_df.loc[still_failed_mask, breach_date_col] = processed_df.loc[still_failed_mask, breach_date_col].fillna(dayfirst_gen_parsed)
+
+    processed_df.dropna(subset=[breach_date_col], inplace=True)
+
+    if processed_df.empty:
+        return pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'Count'])
+
+    processed_df['Year-Week'] = processed_df[breach_date_col].dt.strftime('%G-W%V')
+
+    incidents_breached_weekly = processed_df.groupby('Year-Week').size().reset_index(name='Count')
+
+    if not incidents_breached_weekly.empty:
+        incidents_breached_weekly['WeekDisplay'] = incidents_breached_weekly['Year-Week'].apply(_get_week_display_str)
+    else:
+        incidents_breached_weekly['WeekDisplay'] = pd.Series(dtype='str') # Ensure column exists
+
+    incidents_breached_weekly = incidents_breached_weekly.sort_values(by=['Year-Week']).reset_index(drop=True)
+
+    # Reorder columns
+    final_columns = ['Year-Week', 'WeekDisplay', 'Count']
+    incidents_breached_weekly = incidents_breached_weekly[[col for col in final_columns if col in incidents_breached_weekly.columns]]
+
+    return incidents_breached_weekly
+
+
 if __name__ == '__main__':
     test_calculate_team_status_summary()
     test_case_count_calculation_and_filtering()
     test_calculate_srs_created_per_week()
-    test_calculate_srs_created_and_closed_per_week()  # Corrected this line if it was the source of a typo
+    test_calculate_srs_created_and_closed_per_week()
+    # test_calculate_incidents_breached_per_week() # This was a misplaced call
+    print("All utils.py tests passed successfully when run directly.") # This print will be covered by the one in the main block now
+
+# Ensure the test function definition is here
+def test_calculate_incidents_breached_per_week():
+    """Tests for the calculate_incidents_breached_per_week function."""
+    print("Running test_calculate_incidents_breached_per_week...")
+
+    # Test Case 1: Basic functionality with valid 'Breach Date' data
+    data1 = {
+        'Breach Date': pd.to_datetime(['2023-01-01 10:00:00', '2023-01-02 12:00:00', '2023-01-08 15:00:00', '2023-01-08 16:00:00']),
+        'Incident ID': ['INC001', 'INC002', 'INC003', 'INC004']
+    }
+    df1 = pd.DataFrame(data1)
+    result1 = calculate_incidents_breached_per_week(df1)
+    expected1_data = {
+        'Year-Week': ['2022-W52', '2023-W01'], # 2023-01-01 is in ISO week 52 of 2022
+        'WeekDisplay': [_get_week_display_str('2022-W52'), _get_week_display_str('2023-W01')],
+        'Count': [1, 3]
+    }
+    expected1 = pd.DataFrame(expected1_data)
+    pd.testing.assert_frame_equal(result1, expected1)
+    print("  Test Case 1 (Basic functionality) Passed.")
+
+    # Test Case 2: Missing 'Breach Date' column
+    df2 = pd.DataFrame({'SomeOtherColumn': [1, 2]})
+    result2 = calculate_incidents_breached_per_week(df2)
+    expected2 = pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'Count'])
+    pd.testing.assert_frame_equal(result2, expected2, check_dtype=False)
+    print("  Test Case 2 (Missing 'Breach Date' column) Passed.")
+
+    # Test Case 3: Empty input DataFrame
+    df3 = pd.DataFrame(columns=['Breach Date', 'Incident ID'])
+    result3 = calculate_incidents_breached_per_week(df3)
+    expected3 = pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'Count'])
+    pd.testing.assert_frame_equal(result3, expected3, check_dtype=False)
+    print("  Test Case 3 (Empty input DataFrame) Passed.")
+
+    # Test Case 4: DataFrame with some unparseable 'Breach Date' values
+    data4 = {
+        'Breach Date': ['2023-01-01 10:00:00', 'not a date', '2023-01-03 11:00:00', None, '2023-01-09 09:00:00'],
+        'Incident ID': ['INC001', 'INC002', 'INC003', 'INC004', 'INC005']
+    }
+    df4 = pd.DataFrame(data4)
+    # Manually convert valid dates for expectation, mimicking function's behavior
+    df4_expected_dates = pd.to_datetime(['2023-01-01 10:00:00', '2023-01-03 11:00:00', '2023-01-09 09:00:00'], errors='coerce')
+
+    result4 = calculate_incidents_breached_per_week(df4)
+    expected4_data = {
+        'Year-Week': ['2022-W52', '2023-W01', '2023-W02'],
+        'WeekDisplay': [_get_week_display_str('2022-W52'), _get_week_display_str('2023-W01'), _get_week_display_str('2023-W02')],
+        'Count': [1, 1, 1]
+    }
+    expected4 = pd.DataFrame(expected4_data)
+    pd.testing.assert_frame_equal(result4, expected4)
+    print("  Test Case 4 (Some unparseable 'Breach Date' values) Passed.")
+
+    # Test Case 5: Correct week calculation across year boundaries (ISO week)
+    # Dec 31, 2023 is Sunday, part of 2023-W52
+    # Jan 1, 2024 is Monday, part of 2024-W01
+    # Dec 29, 2024 is Sunday, part of 2024-W52
+    # Dec 30, 2024 is Monday, part of 2025-W01
+    data5 = {
+        'Breach Date': pd.to_datetime([
+            '2023-12-31 23:00:00', # 2023-W52
+            '2024-01-01 01:00:00', # 2024-W01
+            '2024-01-01 02:00:00', # 2024-W01
+            '2024-12-29 23:00:00', # 2024-W52
+            '2024-12-30 01:00:00', # 2025-W01 (ISO 8601 week date system)
+            '2025-01-01 02:00:00'  # 2025-W01
+        ]),
+        'Incident ID': ['INC001', 'INC002', 'INC003', 'INC004', 'INC005', 'INC006']
+    }
+    df5 = pd.DataFrame(data5)
+    result5 = calculate_incidents_breached_per_week(df5)
+    expected5_data = {
+        'Year-Week': ['2023-W52', '2024-W01', '2024-W52', '2025-W01'],
+        'WeekDisplay': [
+            _get_week_display_str('2023-W52'), # Dec 25 - Dec 31, 2023
+            _get_week_display_str('2024-W01'), # Jan 01 - Jan 07, 2024
+            _get_week_display_str('2024-W52'), # Dec 23 - Dec 29, 2024
+            _get_week_display_str('2025-W01')  # Dec 30 - Jan 05, 2025
+        ],
+        'Count': [1, 2, 1, 2]
+    }
+    expected5 = pd.DataFrame(expected5_data)
+    pd.testing.assert_frame_equal(result5, expected5)
+    print("  Test Case 5 (Year boundary ISO week) Passed.")
+
+    # Test Case 6: All 'Breach Date' values are unparseable or None
+    data6 = {
+        'Breach Date': ['Invalid', None, 'N/A', ''],
+        'Incident ID': ['INC001', 'INC002', 'INC003', 'INC004']
+    }
+    df6 = pd.DataFrame(data6)
+    result6 = calculate_incidents_breached_per_week(df6)
+    expected6 = pd.DataFrame(columns=['Year-Week', 'WeekDisplay', 'Count'])
+    pd.testing.assert_frame_equal(result6, expected6, check_dtype=False)
+    print("  Test Case 6 (All 'Breach Date' unparseable) Passed.")
+
+    # Test Case 7: Using a custom column name for breach date
+    data7 = {
+        'Custom Breach Column': pd.to_datetime(['2023-02-10 10:00:00', '2023-02-15 12:00:00']),
+        'Incident ID': ['INC001', 'INC002']
+    }
+    df7 = pd.DataFrame(data7)
+    result7 = calculate_incidents_breached_per_week(df7, breach_date_col='Custom Breach Column')
+    expected7_data = {
+        'Year-Week': ['2023-W06', '2023-W07'],
+        'WeekDisplay': [_get_week_display_str('2023-W06'), _get_week_display_str('2023-W07')],
+        'Count': [1, 1]
+    }
+    expected7 = pd.DataFrame(expected7_data)
+    pd.testing.assert_frame_equal(result7, expected7)
+    print("  Test Case 7 (Custom breach date column name) Passed.")
+
+    # Test Case 8: Various string date formats that should be parsed
+    data8 = {
+        'Breach Date': [
+            '01/03/2023 10:30:00',  # dd/mm/yyyy HH:MM:SS -> March 1st, 2023-W09
+            '05/03/2023',           # dd/mm/yyyy -> March 5th, 2023-W09
+            '10/03/23 15:45',       # dd/mm/yy HH:MM -> March 10th, 2023-W10
+            '2023-03-15T08:00:00',  # ISO format -> March 15th, 2023-W11
+            '12-Mar-2023 11:00'     # Example of another common format (pd.to_datetime handles this by default) -> March 12th, 2023-W10
+        ],
+        'Incident ID': ['INC001', 'INC002', 'INC003', 'INC004', 'INC005']
+    }
+    df8 = pd.DataFrame(data8)
+    result8 = calculate_incidents_breached_per_week(df8)
+    expected8_data = {
+        'Year-Week': ['2023-W09', '2023-W10', '2023-W11'],
+        'WeekDisplay': [_get_week_display_str('2023-W09'), _get_week_display_str('2023-W10'), _get_week_display_str('2023-W11')],
+        'Count': [2, 2, 1] # March 1 (W09), March 5 (W09), March 10 (W10), March 12 (W10), March 15 (W11)
+    }
+    expected8 = pd.DataFrame(expected8_data)
+    pd.testing.assert_frame_equal(result8, expected8)
+    print("  Test Case 8 (Various string date formats) Passed.")
+
+
+    print("All test_calculate_incidents_breached_per_week tests passed.")
+
+if __name__ == '__main__':
+    test_calculate_team_status_summary()
+    test_case_count_calculation_and_filtering()
+    test_calculate_srs_created_per_week()
+    test_calculate_srs_created_and_closed_per_week()
+    test_calculate_incidents_breached_per_week() # Correctly calling the test function
     print("All utils.py tests passed successfully when run directly.")
