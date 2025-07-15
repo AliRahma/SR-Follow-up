@@ -961,12 +961,12 @@ else:
                     
                     # Merge both summaries
                     merged_status = pd.merge(status_all_counts, ticket_unique_counts, on='Status', how='outer').fillna(0)
-                    merged_status[['All Count', 'Unique Count']] = merged_status[['All Count', 'Unique Count']].astype(int)
+                    merged_status[['Cases Count', 'Unique Count']] = merged_status[['Cases Count', 'Unique Count']].astype(int)
                     
                     # Total row
                     total_row = {
                         'Status': 'Total',
-                        'All Count': merged_status['All Count'].sum(),
+                        'Cases Count': merged_status['All Count'].sum(),
                         'Unique Count': merged_status['Unique Count'].sum()
                     }
                     
