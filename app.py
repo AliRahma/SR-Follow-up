@@ -966,7 +966,7 @@ else:
                     # Total row
                     total_row = {
                         'Status': 'Total',
-                        'SR Count': merged_status['All Count'].sum(),
+                        'All Count': merged_status['All Count'].sum(),
                         'Unique Count': merged_status['Unique Count'].sum()
                     }
                     
