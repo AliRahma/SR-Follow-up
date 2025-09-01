@@ -974,28 +974,31 @@ else:
                     new_rows = []
                     for _, row in merged_status.iterrows():
                         new_rows.append(row)
-                        if row['Status'] == 'Waiting for approval':
+                        # Use case-insensitive and whitespace-agnostic comparison
+                        if str(row['Status']).strip().lower() == 'waiting for approval':
                             # Get the breakdown for this status
-                            srs_waiting = df_srs_status_valid[df_srs_status_valid['Status'] == 'Waiting for approval']
+                            srs_waiting = df_srs_status_valid[df_srs_status_valid['Status'].astype(str).str.strip().lower() == 'waiting for approval']
 
-                            # Breakdown for cases
-                            case_breakdown = srs_waiting['Pending With'].value_counts().reset_index()
-                            case_breakdown.columns = ['Pending With', 'Cases Count']
+                            if not srs_waiting.empty and 'Pending With' in srs_waiting.columns:
+                                # Breakdown for cases
+                                case_breakdown = srs_waiting['Pending With'].value_counts().reset_index()
+                                case_breakdown.columns = ['Pending With', 'Cases Count']
 
-                            # Breakdown for unique SRs
-                            sr_breakdown = srs_waiting.drop_duplicates(subset=['Ticket Number'])['Pending With'].value_counts().reset_index()
-                            sr_breakdown.columns = ['Pending With', 'SR Count']
+                                # Breakdown for unique SRs
+                                sr_breakdown = srs_waiting.drop_duplicates(subset=['Ticket Number'])['Pending With'].value_counts().reset_index()
+                                sr_breakdown.columns = ['Pending With', 'SR Count']
 
-                            # Merge breakdowns
-                            final_breakdown = pd.merge(case_breakdown, sr_breakdown, on='Pending With', how='outer').fillna(0)
+                                # Merge breakdowns
+                                final_breakdown = pd.merge(case_breakdown, sr_breakdown, on='Pending With', how='outer').fillna(0)
 
-                            for _, breakdown_row in final_breakdown.iterrows():
-                                new_row = {
-                                    'Status': f"&nbsp;&nbsp;&nbsp;&nbsp;{breakdown_row['Pending With']}",
-                                    'Cases Count': int(breakdown_row['Cases Count']),
-                                    'SR Count': int(breakdown_row['SR Count'])
-                                }
-                                new_rows.append(pd.Series(new_row))
+                                for _, breakdown_row in final_breakdown.iterrows():
+                                    if pd.notna(breakdown_row['Pending With']):
+                                        new_row = {
+                                            'Status': f"    \u21b3 {breakdown_row['Pending With']}", # Indent with spaces and an arrow
+                                            'Cases Count': int(breakdown_row['Cases Count']),
+                                            'SR Count': int(breakdown_row['SR Count'])
+                                        }
+                                        new_rows.append(pd.Series(new_row))
 
                     # Create the new summary dataframe
                     if new_rows:
@@ -1012,10 +1015,12 @@ else:
                     
                     status_summary_df = pd.concat([status_summary_df_with_breakdown, pd.DataFrame([total_row])], ignore_index=True)
                     
-                    # Display
-                    st.markdown(
-                        status_summary_df.to_html(escape=False, index=False),
-                        unsafe_allow_html=True
+                    # Display with original styling
+                    st.dataframe(
+                        status_summary_df.style.apply(
+                            lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(status_summary_df)-1 else '' for _ in x],
+                            axis=1
+                        )
                     )
                 else:
                     st.info("No SRs with status information available.")
