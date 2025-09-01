@@ -977,7 +977,7 @@ else:
                         # Use case-insensitive and whitespace-agnostic comparison
                         if str(row['Status']).strip().lower() == 'waiting for approval':
                             # Get the breakdown for this status
-                            srs_waiting = df_srs_status_valid[df_srs_status_valid['Status'].astype(str).str.strip().lower() == 'waiting for approval']
+                            srs_waiting = df_srs_status_valid[df_srs_status_valid['Status'].apply(lambda x: str(x).strip().lower() == 'waiting for approval')]
 
                             if not srs_waiting.empty and 'Pending With' in srs_waiting.columns:
                                 # Breakdown for cases
