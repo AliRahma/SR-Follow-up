@@ -2491,23 +2491,24 @@ else:
                                 all_closed_columns.remove(col_to_remove)
 
                         default_closed_cols = ['Service Request', 'Status', 'Created On', 'LastModDateTime', 'Resolution'] # Example, adjust as needed
-                        sanitized_default_closed_cols = [col for col in default_closed_cols if col in all_closed_columns]
+                        sanitized_default_closed_cols = [col for col in default_closed_cols if col in all_columns]
 
                         if 'closed_sr_data_cols_multiselect' not in st.session_state:
                             st.session_state.closed_sr_data_cols_multiselect = sanitized_default_closed_cols
 
                         selected_closed_columns = st.multiselect(
                             "Select columns to display for Closed SRs:",
-                            options=all_closed_columns,
+                            options=all_columns,
                             default=st.session_state.closed_sr_data_cols_multiselect,
                             key="multiselect_closed_sr_data"
                         )
                         st.session_state.closed_sr_data_cols_multiselect = selected_closed_columns
 
+
                         if selected_closed_columns:
                             st.dataframe(filtered_closed_srs_df[selected_closed_columns], hide_index=True)
                         else:
-                            # Show all available (minus internal Year-Week) if no columns selected but data exists
+                            # Show all available (minus internal Year-Week) if no columns are selected but data exists
                             # Ensure we use the correct list of all_closed_columns (which has helpers removed)
                             st.dataframe(filtered_closed_srs_df[all_closed_columns] if all_closed_columns else filtered_closed_srs_df, hide_index=True)
 
