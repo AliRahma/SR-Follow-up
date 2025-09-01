@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pytz
 from streamlit_option_menu import option_menu
 import plotly.express as px
-from utils import calculate_team_status_summary, calculate_srs_created_per_week, _get_week_display_str # Added _get_week_display_str
+from utils import calculate_team_status_summary, calculate_srs_created_per_week, _get_week_display_str, extract_approver_name # Added _get_week_display_str
 
 # Set page configuration
 st.set_page_config(
@@ -676,6 +676,7 @@ else:
         df_enriched['Status'] = None
         df_enriched['Last Update'] = None
         df_enriched['Breach Passed'] = None
+        df_enriched['Pending With'] = None
         
         # Ensure 'Ticket Number' is numeric before any merges
         if 'Ticket Number' in df_enriched.columns:
@@ -699,6 +700,8 @@ else:
                     sr_rename_for_merge['LastModDateTime'] = 'SR_Last_Update_temp'
                 if 'Breach Passed' in sr_df_copy.columns:
                     sr_rename_for_merge['Breach Passed'] = 'SR_Breach_Value_temp'
+                if 'Approval Pending with' in sr_df_copy.columns:
+                    sr_rename_for_merge['Approval Pending with'] = 'SR_Approval_Pending_with_temp'
 
                 sr_df_copy.rename(columns=sr_rename_for_merge, inplace=True)
 
@@ -739,6 +742,10 @@ else:
                     mapped_values = df_enriched.loc[sr_mask, 'SR_Breach_Value_temp'].apply(map_str_to_bool_sr)
                     df_enriched.loc[sr_mask, 'Breach Passed'] = mapped_values
                     df_enriched.drop(columns=['SR_Breach_Value_temp'], inplace=True)
+
+                if 'SR_Approval_Pending_with_temp' in df_enriched.columns:
+                    df_enriched.loc[sr_mask, 'Pending With'] = df_enriched.loc[sr_mask, 'SR_Approval_Pending_with_temp'].apply(extract_approver_name)
+                    df_enriched.drop(columns=['SR_Approval_Pending_with_temp'], inplace=True)
 
         # Merge with Incident status data if available
         if hasattr(st.session_state, 'incident_df') and st.session_state.incident_df is not None:
@@ -963,6 +970,39 @@ else:
                     merged_status = pd.merge(status_all_counts, ticket_unique_counts, on='Status', how='outer').fillna(0)
                     merged_status[['Cases Count', 'SR Count']] = merged_status[['Cases Count', 'SR Count']].astype(int)
                     
+                    # New logic for breakdown
+                    new_rows = []
+                    for _, row in merged_status.iterrows():
+                        new_rows.append(row)
+                        if row['Status'] == 'Waiting for approval':
+                            # Get the breakdown for this status
+                            srs_waiting = df_srs_status_valid[df_srs_status_valid['Status'] == 'Waiting for approval']
+
+                            # Breakdown for cases
+                            case_breakdown = srs_waiting['Pending With'].value_counts().reset_index()
+                            case_breakdown.columns = ['Pending With', 'Cases Count']
+
+                            # Breakdown for unique SRs
+                            sr_breakdown = srs_waiting.drop_duplicates(subset=['Ticket Number'])['Pending With'].value_counts().reset_index()
+                            sr_breakdown.columns = ['Pending With', 'SR Count']
+
+                            # Merge breakdowns
+                            final_breakdown = pd.merge(case_breakdown, sr_breakdown, on='Pending With', how='outer').fillna(0)
+
+                            for _, breakdown_row in final_breakdown.iterrows():
+                                new_row = {
+                                    'Status': f"&nbsp;&nbsp;&nbsp;&nbsp;{breakdown_row['Pending With']}",
+                                    'Cases Count': int(breakdown_row['Cases Count']),
+                                    'SR Count': int(breakdown_row['SR Count'])
+                                }
+                                new_rows.append(pd.Series(new_row))
+
+                    # Create the new summary dataframe
+                    if new_rows:
+                        status_summary_df_with_breakdown = pd.DataFrame(new_rows)
+                    else:
+                        status_summary_df_with_breakdown = merged_status.copy()
+
                     # Total row
                     total_row = {
                         'Status': 'Total',
@@ -970,14 +1010,12 @@ else:
                         'SR Count': merged_status['SR Count'].sum()
                     }
                     
-                    status_summary_df = pd.concat([merged_status, pd.DataFrame([total_row])], ignore_index=True)
+                    status_summary_df = pd.concat([status_summary_df_with_breakdown, pd.DataFrame([total_row])], ignore_index=True)
                     
                     # Display
-                    st.dataframe(
-                        status_summary_df.style.apply(
-                            lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(status_summary_df)-1 else '' for _ in x],
-                            axis=1
-                        )
+                    st.markdown(
+                        status_summary_df.to_html(escape=False, index=False),
+                        unsafe_allow_html=True
                     )
                 else:
                     st.info("No SRs with status information available.")
