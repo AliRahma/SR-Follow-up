@@ -688,61 +688,40 @@ else:
                 sr_df_copy['Service Request'] = pd.to_numeric(sr_df_copy['Service Request'], errors='coerce')
                 sr_df_copy.dropna(subset=['Service Request'], inplace=True)
 
-                cols_to_merge_from_sr = ['Service Request']
-                sr_rename_for_merge = {}
+                # Proactively rename columns from the SR file to avoid suffix ambiguity
+                sr_cols_to_rename = {col: f"{col}_sr" for col in sr_df_copy.columns if col != 'Service Request'}
+                sr_df_copy.rename(columns=sr_cols_to_rename, inplace=True)
 
-                if 'Status' in sr_df_copy.columns:
-                    sr_rename_for_merge['Status'] = 'SR_Status_temp'
-                if 'LastModDateTime' in sr_df_copy.columns:
-                    sr_rename_for_merge['LastModDateTime'] = 'SR_Last_Update_temp'
-                if 'Breach Passed' in sr_df_copy.columns:
-                    sr_rename_for_merge['Breach Passed'] = 'SR_Breach_Value_temp'
-                if 'Approval Pending with' in sr_df_copy.columns:
-                    sr_rename_for_merge['Approval Pending with'] = 'SR_Approval_Pending_with_temp'
-
-                sr_df_copy.rename(columns=sr_rename_for_merge, inplace=True)
-
-                for new_name in sr_rename_for_merge.values():
-                    if new_name not in cols_to_merge_from_sr:
-                        cols_to_merge_from_sr.append(new_name)
-
+                # Merge all columns from sr_df
                 df_enriched = df_enriched.merge(
-                    sr_df_copy[cols_to_merge_from_sr],
+                    sr_df_copy,
                     how='left',
                     left_on='Ticket Number',
-                    right_on='Service Request',
-                    suffixes=('', '_sr_merged')
+                    right_on='Service Request'
+                    # No suffix needed now as columns are pre-renamed
                 )
-
-                if 'Service Request_sr_merged' in df_enriched.columns:
-                    df_enriched.drop(columns=['Service Request_sr_merged'], inplace=True)
-                elif 'Service Request' in df_enriched.columns and 'Ticket Number' in df_enriched.columns and df_enriched.columns.tolist().count('Service Request') > 1:
-                     df_enriched.drop(columns=['Service Request'], errors='ignore', inplace=True)
 
                 sr_mask = df_enriched['Type'] == 'SR'
 
-                if 'SR_Status_temp' in df_enriched.columns:
-                    df_enriched.loc[sr_mask, 'Status'] = df_enriched.loc[sr_mask, 'SR_Status_temp']
-                    df_enriched.drop(columns=['SR_Status_temp'], inplace=True)
-                if 'SR_Last_Update_temp' in df_enriched.columns:
-                    df_enriched.loc[sr_mask, 'Last Update'] = df_enriched.loc[sr_mask, 'SR_Last_Update_temp']
-                    df_enriched.drop(columns=['SR_Last_Update_temp'], inplace=True)
+                # Populate unified columns from the suffixed SR columns
+                if 'Status_sr' in df_enriched.columns:
+                    df_enriched.loc[sr_mask, 'Status'] = df_enriched.loc[sr_mask, 'Status_sr']
+                if 'LastModDateTime_sr' in df_enriched.columns:
+                    df_enriched.loc[sr_mask, 'Last Update'] = df_enriched.loc[sr_mask, 'LastModDateTime_sr']
 
-                if 'SR_Breach_Value_temp' in df_enriched.columns:
+                if 'Breach Passed_sr' in df_enriched.columns:
                     def map_str_to_bool_sr(value):
                         if pd.isna(value): return None
                         val_lower = str(value).lower()
                         if val_lower in ['yes', 'true', '1', 'passed'] : return True
                         if val_lower in ['no', 'false', '0', 'failed']: return False
-                        return None # Default for unmapped strings
+                        return None
 
-                    mapped_values = df_enriched.loc[sr_mask, 'SR_Breach_Value_temp'].apply(map_str_to_bool_sr)
+                    mapped_values = df_enriched.loc[sr_mask, 'Breach Passed_sr'].apply(map_str_to_bool_sr)
                     df_enriched.loc[sr_mask, 'Breach Passed'] = mapped_values
-                    df_enriched.drop(columns=['SR_Breach_Value_temp'], inplace=True)
 
-                if 'SR_Approval_Pending_with_temp' in df_enriched.columns:
-                    df_enriched.loc[sr_mask, 'Pending With'] = df_enriched.loc[sr_mask, 'SR_Approval_Pending_with_temp'].apply(extract_approver_name)
-                    df_enriched.drop(columns=['SR_Approval_Pending_with_temp'], inplace=True)
+                if 'Approval Pending with_sr' in df_enriched.columns:
+                    df_enriched.loc[sr_mask, 'Pending With'] = df_enriched.loc[sr_mask, 'Approval Pending with_sr'].apply(extract_approver_name)
 
         # Merge with Incident status data if available
         if hasattr(st.session_state, 'incident_df') and st.session_state.incident_df is not None:
@@ -1601,7 +1580,7 @@ else:
                 SELECT_ALL_TEAMS_OPTION = SELECT_ALL_BASE_STRING % "Teams"
 
                 # Define the desired default teams
-                default_teams_to_select = ["GPSSA App Team L1", "GPSSA App Team L3"]
+                default_teams_to_select = ["GPSSA App Team L1", "GPSSA App Team L3", "GPSSA PS Team L3"]
 
                 if 'incident_team_widget_selection_controlled' not in st.session_state:
                     # Filter desired default teams to only those present in unique_teams
@@ -2488,7 +2467,7 @@ else:
                                 all_closed_columns.remove(col_to_remove)
 
                         default_closed_cols = ['Service Request', 'Status', 'Created On', 'LastModDateTime', 'Resolution'] # Example, adjust as needed
-                        sanitized_default_closed_cols = [col for col in default_closed_cols if col in all_columns]
+                        sanitized_default_closed_cols = [col for col in default_closed_cols if col in all_closed_columns]
 
                         if 'closed_sr_data_cols_multiselect' not in st.session_state:
                             st.session_state.closed_sr_data_cols_multiselect = sanitized_default_closed_cols
