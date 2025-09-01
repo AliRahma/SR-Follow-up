@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 from datetime import datetime
 import re # For classify_and_extract
+from utils import extract_approver_name
 
 # --- Copied functions from app.py ---
 
@@ -22,7 +23,7 @@ def classify_and_extract(note):
              ticket_type = "Incident"
         elif ticket_num == 15001: # Specific for Scenario 5 test
              ticket_type = "SR"
-        elif 14000 <= ticket_num <= 18000:
+        elif 14000 <= ticket_num <= 19000:
             ticket_type = "SR"
         else:
             ticket_type = "Incident"
@@ -74,6 +75,7 @@ def enrich_data(df):
     df_enriched['Status'] = None
     df_enriched['Last Update'] = None
     df_enriched['Breach Passed'] = None
+    df_enriched['Pending With'] = None
 
     # Ensure 'Ticket Number' is numeric before any merges
     if 'Ticket Number' in df_enriched.columns:
@@ -97,6 +99,8 @@ def enrich_data(df):
                 sr_rename_for_merge['LastModDateTime'] = 'SR_Last_Update_temp'
             if 'Breach Passed' in sr_df_copy.columns:
                 sr_rename_for_merge['Breach Passed'] = 'SR_Breach_Value_temp'
+            if 'Approval Pending with' in sr_df_copy.columns:
+                sr_rename_for_merge['Approval Pending with'] = 'SR_Approval_Pending_with_temp'
 
             sr_df_copy.rename(columns=sr_rename_for_merge, inplace=True)
 
@@ -137,6 +141,10 @@ def enrich_data(df):
                 mapped_values = df_enriched.loc[sr_mask, 'SR_Breach_Value_temp'].apply(map_str_to_bool_sr)
                 df_enriched.loc[sr_mask, 'Breach Passed'] = mapped_values
                 df_enriched.drop(columns=['SR_Breach_Value_temp'], inplace=True)
+
+            if 'SR_Approval_Pending_with_temp' in df_enriched.columns:
+                df_enriched.loc[sr_mask, 'Pending With'] = df_enriched.loc[sr_mask, 'SR_Approval_Pending_with_temp'].apply(extract_approver_name)
+                df_enriched.drop(columns=['SR_Approval_Pending_with_temp'], inplace=True)
 
     # Merge with Incident status data if available
     if hasattr(st.session_state, 'incident_df') and st.session_state.incident_df is not None:
@@ -370,6 +378,27 @@ def run_tests():
         actual_s5 = enriched_df_s5['Breach Passed'].tolist()
         assert actual_s5 == expected_s5, f"Scenario 5 Failed: Expected {expected_s5}, Got {actual_s5}"
         test_results.append("Scenario 5 (SR and Incident, Incident overwrites): Passed")
+
+        # Scenario 6: Test "Pending With" column creation
+        st.session_state = MockSessionState(sr_df=pd.DataFrame({
+            'Service Request': ['SR14008', 'SR14009', 'SR14010'],
+            'Approval Pending with': [
+                'Status: Pending - with mohd.saqer@gpssa.gov.ae',
+                'Pending with ali.babiker@gpssa.gov.ae',
+                'No email here'
+            ]
+        }))
+        input_df_s6 = pd.DataFrame({
+            'Case Id': ['C14', 'C15', 'C16'], 'Current User Id': ['user1', 'user2', 'user1'],
+            'Last Note': ['SR14008', 'SR14009', 'SR14010'],
+            'Case Start Date': [pd.Timestamp('2023-01-01')] * 3,
+            'Last Note Date': [pd.Timestamp('2023-01-01')] * 3
+        })
+        enriched_df_s6 = enrich_data(input_df_s6.copy())
+        expected_s6 = ['mohd saqer', 'ali babiker', None]
+        actual_s6 = enriched_df_s6['Pending With'].tolist()
+        assert actual_s6 == expected_s6, f"Scenario 6 Failed: Expected {expected_s6}, Got {actual_s6}"
+        test_results.append("Scenario 6 (SR only, Pending With): Passed")
 
     except AssertionError as e:
         test_results.append(f"Test Failed: {e}")
