@@ -93,9 +93,6 @@ def set_custom_theme():
         min-width: 50px !important;
         max-width: 50px !important;
     }
-    .st-ch {
-        font-size: 14px;
-    }
     .action-button {
         background-color: #1976d2;
         color: white;
