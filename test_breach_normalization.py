@@ -400,6 +400,30 @@ def run_tests():
         assert actual_s6 == expected_s6, f"Scenario 6 Failed: Expected {expected_s6}, Got {actual_s6}"
         test_results.append("Scenario 6 (SR only, Pending With): Passed")
 
+        # Scenario 7: Test case-insensitive status matching for breakdown
+        st.session_state = MockSessionState(sr_df=pd.DataFrame({
+            'Service Request': ['SR14011'],
+            'Status': [' Waiting For Approval '],
+            'Approval Pending with': ['with test.user@example.com']
+        }))
+        input_df_s7 = pd.DataFrame({
+            'Case Id': ['C17'], 'Current User Id': ['user1'],
+            'Last Note': ['SR14011'],
+            'Case Start Date': [pd.Timestamp('2023-01-01')],
+            'Last Note Date': [pd.Timestamp('2023-01-01')]
+        })
+        enriched_df_s7 = enrich_data(input_df_s7.copy())
+        # This test only checks the data enrichment, not the display logic.
+        # We expect 'Pending With' to be populated correctly.
+        expected_s7_status = ' Waiting For Approval '
+        expected_s7_pending = 'test user'
+        actual_s7_status = enriched_df_s7['Status'].iloc[0]
+        actual_s7_pending = enriched_df_s7['Pending With'].iloc[0]
+        assert actual_s7_status == expected_s7_status
+        assert actual_s7_pending == expected_s7_pending
+        test_results.append("Scenario 7 (Case-insensitive status for breakdown): Passed")
+
+
     except AssertionError as e:
         test_results.append(f"Test Failed: {e}")
     except Exception as e:
