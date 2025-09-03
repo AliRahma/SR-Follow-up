@@ -623,13 +623,19 @@ else:
     else:
         df_filtered = df_main.copy()
     
-    # Apply date filter if date range is selected
-    if 'Case Start Date' in df_filtered.columns and 'date_range' in locals():
-        start_date, end_date = date_range
-        df_filtered = df_filtered[
-            (df_filtered['Case Start Date'].dt.date >= start_date) & 
-            (df_filtered['Case Start Date'].dt.date <= end_date)
-        ]
+    # Apply date filter if date range is selected and column exists
+    if 'date_range' in locals() and 'Case Start Date' in df_filtered.columns:
+        # Ensure date_range is a tuple of two dates
+        if isinstance(date_range, tuple) and len(date_range) == 2:
+            start_date, end_date = date_range
+            # Additional check to ensure dates are not NaT or None
+            if pd.notna(start_date) and pd.notna(end_date):
+                # Ensure the 'Case Start Date' column is in datetime format before filtering
+                if pd.api.types.is_datetime64_any_dtype(df_filtered['Case Start Date']):
+                    df_filtered = df_filtered[
+                        (df_filtered['Case Start Date'].dt.date >= start_date) &
+                        (df_filtered['Case Start Date'].dt.date <= end_date)
+                    ]
     
     # Prepare tab interface
     selected = option_menu(
