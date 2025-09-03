@@ -335,12 +335,21 @@ def load_data(file):
 
 # Function to process main dataframe
 def process_main_df(df):
+    # Drop duplicates based on 'Case Id', keeping the last occurrence
+    if 'Case Id' in df.columns:
+        initial_rows = len(df)
+        # Use inplace=False to return a new DataFrame, which is safer.
+        df = df.drop_duplicates(subset=['Case Id'], keep='last')
+        rows_dropped = initial_rows - len(df)
+        if rows_dropped > 0:
+            print(f"--- INFO: Dropped {rows_dropped} duplicate cases based on 'Case Id'. ---")
+
     # Ensure date columns are in datetime format
     date_columns = ['Case Start Date', 'Last Note Date']
     for col in date_columns:
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], format="%d/%m/%Y", errors='coerce')
-    return df
+            # Use .loc to avoid SettingWithCopyWarning
+            df.loc[:, col] = pd.to_datetime(df[col], format="%d/%m/%Y", errors='coerce')
     
     # Extract all unique users
     if 'Current User Id' in df.columns:
