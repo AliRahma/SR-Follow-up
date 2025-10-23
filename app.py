@@ -2529,6 +2529,20 @@ else:
         else:
             incident_df = st.session_state.incident_df.copy()
 
+            # Team filter for this tab
+            if 'Team' in incident_df.columns:
+                all_teams = sorted(incident_df['Team'].dropna().unique())
+                default_teams = ["GPSSA App Team L1", "GPSSA PS Team L3"]
+
+                selected_teams = st.multiselect(
+                    "Filter by Team",
+                    options=all_teams,
+                    default=[team for team in default_teams if team in all_teams]
+                )
+
+                if selected_teams:
+                    incident_df = incident_df[incident_df['Team'].isin(selected_teams)]
+
             st.header("📈 Ivanti Daily Backlog Growth")
             selected_date = st.date_input("Select a date", datetime.now().date())
             if selected_date:
