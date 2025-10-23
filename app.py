@@ -2609,16 +2609,42 @@ else:
                         st.info("No detailed breached incidents to display.")
 
             st.header("📊 Incidents Status")
-            status_pivot_df = calculate_incident_status_summary_with_totals(incident_df)
-            if not status_pivot_df.empty:
-                st.dataframe(status_pivot_df)
+            active_incidents = incident_df[~incident_df['Status'].isin(['Closed', 'Cancelled'])]
+            if 'Team' in active_incidents.columns:
+                teams = sorted(active_incidents['Team'].dropna().unique())
+
+                for team in teams:
+                    st.subheader(f"Status for {team}")
+                    team_df = active_incidents[active_incidents['Team'] == team]
+
+                    if not team_df.empty:
+                        status_summary = team_df['Status'].value_counts().reset_index()
+                        status_summary.columns = ['Status', 'Count']
+
+                        # Add a 'Total' row
+                        total_row = pd.DataFrame([{'Status': 'Total', 'Count': status_summary['Count'].sum()}])
+                        status_summary_with_total = pd.concat([status_summary, total_row], ignore_index=True)
+
+                        st.dataframe(
+                            status_summary_with_total.style.apply(
+                                lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(status_summary_with_total)-1 else '' for _ in x],
+                                axis=1
+                            )
+                        )
+                    else:
+                        st.info(f"No active incidents to display for {team}.")
             else:
-                st.info("No incident status data to display.")
+                # Fallback for if 'Team' column doesn't exist
+                status_pivot_df = calculate_incident_status_summary_with_totals(incident_df)
+                if not status_pivot_df.empty:
+                    st.dataframe(status_pivot_df)
+                else:
+                    st.info("No incident status data to display.")
 
 st.markdown("---")
 st.markdown(
     """<div style="text-align:center; color:#888; font-size:0.8em;">
-    Intellipen SmartQ Test V4.0 | Developed by Ali Babiker | © July 2025
+    Intellipen SmartQ Test V4.5 | Developed by Ali Babiker | © July 2025
     </div>""",
     unsafe_allow_html=True
 )
