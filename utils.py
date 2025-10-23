@@ -1057,6 +1057,54 @@ def test_calculate_incidents_breached_per_week():
 
     print("All test_calculate_incidents_breached_per_week tests passed.")
 
+def calculate_daily_backlog_growth(df, selected_date):
+    if 'Created On' in df.columns and 'Source' in df.columns:
+        df['Created On'] = pd.to_datetime(df['Created On'], errors='coerce')
+        daily_backlog = df[df['Created On'].dt.date == selected_date]
+        if not daily_backlog.empty:
+            return daily_backlog.groupby('Source').size().reset_index(name='Count')
+    return pd.DataFrame(columns=['Source', 'Count'])
+
+def calculate_breached_incidents_by_month(df):
+    if 'Breach Date' in df.columns and 'Status' in df.columns and 'Breach Passed' in df.columns:
+        open_statuses = ['Open', 'In Progress', 'Pending', 'New']
+
+        def map_breach_status(status):
+            if isinstance(status, str):
+                return 'yes' in status.lower() or 'passed' in status.lower()
+            return bool(status)
+
+        df['Is Breached'] = df['Breach Passed'].apply(map_breach_status)
+
+        open_breached_incidents = df[(df['Is Breached']) & (df['Status'].isin(open_statuses))].copy()
+
+        if not open_breached_incidents.empty:
+            open_breached_incidents['Breach Date'] = pd.to_datetime(open_breached_incidents['Breach Date'], errors='coerce')
+            open_breached_incidents.dropna(subset=['Breach Date'], inplace=True)
+            if not open_breached_incidents.empty:
+                open_breached_incidents['Month'] = open_breached_incidents['Breach Date'].dt.to_period('M')
+                breached_by_month = open_breached_incidents.groupby('Month').size().reset_index(name='Count')
+                breached_by_month['Month'] = breached_by_month['Month'].astype(str)
+                return breached_by_month
+    return pd.DataFrame(columns=['Month', 'Count'])
+
+def calculate_incident_status_summary_with_totals(df):
+    if 'Team' in df.columns and 'Status' in df.columns:
+        team_status_summary_df = calculate_team_status_summary(df)
+        if not team_status_summary_df.empty:
+            status_pivot = pd.pivot_table(
+                team_status_summary_df,
+                values='Total Incidents',
+                index='Team',
+                columns='Status',
+                aggfunc='sum',
+                fill_value=0,
+                margins=True,
+                margins_name='Total'
+            )
+            return status_pivot
+    return pd.DataFrame()
+
 def test_extract_approver_name():
     """Tests for the extract_approver_name function."""
     print("Running test_extract_approver_name...")
@@ -1100,10 +1148,14 @@ def test_extract_approver_name():
 
 
 if __name__ == '__main__':
+    from test_daily_meeting_reports import test_calculate_daily_backlog_growth, test_calculate_breached_incidents_by_month, test_calculate_incident_status_summary_with_totals
     test_calculate_team_status_summary()
     test_case_count_calculation_and_filtering()
     test_calculate_srs_created_per_week()
     test_calculate_srs_created_and_closed_per_week()
     test_calculate_incidents_breached_per_week() # Correctly calling the test function
     test_extract_approver_name()
+    test_calculate_daily_backlog_growth()
+    test_calculate_breached_incidents_by_month()
+    test_calculate_incident_status_summary_with_totals()
     print("All utils.py tests passed successfully when run directly.")

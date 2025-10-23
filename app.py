@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pytz
 from streamlit_option_menu import option_menu
 import plotly.express as px
-from utils import calculate_team_status_summary, calculate_srs_created_per_week, _get_week_display_str, extract_approver_name # Added _get_week_display_str
+from utils import calculate_team_status_summary, calculate_srs_created_per_week, _get_week_display_str, extract_approver_name, calculate_daily_backlog_growth, calculate_breached_incidents_by_month, calculate_incident_status_summary_with_totals
 
 # Set page configuration
 st.set_page_config(
@@ -643,8 +643,8 @@ else:
     # Prepare tab interface
     selected = option_menu(
         menu_title=None,
-        options=["Analysis", "SLA Breach", "Today's SR/Incidents", "Incident Overview", "SR Overview"],
-        icons=["kanban", "exclamation-triangle", "calendar-date", "clipboard-data", "bar-chart-line"],
+        options=["Analysis", "SLA Breach", "Today's SR/Incidents", "Incident Overview", "SR Overview", "Daily Meeting Report"],
+        icons=["kanban", "exclamation-triangle", "calendar-date", "clipboard-data", "bar-chart-line", "presentation-fill"],
         menu_icon="cast",
         default_index=0,
         orientation="horizontal",
@@ -2394,11 +2394,40 @@ else:
 
                 st.markdown("---") # Separator before the new Closed SRs table
 
-                # --- Closed SRs Table ---
-                st.subheader("Closed Service Requests")
+    # This else corresponds to 'if not filtered_closed_srs_df.empty:'
+    else:
+        st.info("No Closed SR data to display based on current filters.")
 
-                # Essential columns for this section
-                essential_cols_closed_sr = ['Status', 'LastModDateTime']
+    elif selected == "Daily Meeting Report":
+        st.title("📅 Daily Meeting Report")
+
+        if 'incident_df' not in st.session_state or st.session_state.incident_df is None:
+            st.warning("Please upload the Incident Report Excel file to view this report.")
+        else:
+            incident_df = st.session_state.incident_df.copy()
+
+            st.header("Ivanti Daily Backlog Growth")
+            selected_date = st.date_input("Select a date", datetime.now().date())
+            if selected_date:
+                backlog_growth_df = calculate_daily_backlog_growth(incident_df, selected_date)
+                if not backlog_growth_df.empty:
+                    st.table(backlog_growth_df)
+                else:
+                    st.info(f"No incidents created on {selected_date.strftime('%Y-%m-%d')}.")
+
+            st.header("Breached Incidents")
+            breached_by_month_df = calculate_breached_incidents_by_month(incident_df)
+            if not breached_by_month_df.empty:
+                st.table(breached_by_month_df)
+            else:
+                st.info("No open breached incidents found.")
+
+            st.header("Incidents Status")
+            status_pivot_df = calculate_incident_status_summary_with_totals(incident_df)
+            if not status_pivot_df.empty:
+                st.table(status_pivot_df)
+            else:
+                st.info("No incident status data to display.")
                 missing_essential_cols = [col for col in essential_cols_closed_sr if col not in sr_overview_df.columns]
 
                 if missing_essential_cols:
