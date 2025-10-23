@@ -2569,7 +2569,7 @@ else:
                     detailed_incidents_df = incident_df[pd.to_datetime(incident_df['Created On'], errors='coerce').dt.date == selected_date]
                     if not detailed_incidents_df.empty:
                         all_columns = detailed_incidents_df.columns.tolist()
-                        selected_columns = st.multiselect("Select columns to display", all_columns, default="Incident")
+                        selected_columns = st.multiselect("Select columns to display", all_columns, default=("Incident","Source"))
                         st.dataframe(detailed_incidents_df[selected_columns])
                     else:
                         st.info("No detailed incidents to display.")
