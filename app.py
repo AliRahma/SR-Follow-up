@@ -2534,21 +2534,31 @@ else:
             if selected_date:
                 backlog_growth_df = calculate_daily_backlog_growth(incident_df, selected_date)
                 if not backlog_growth_df.empty:
-                    st.table(backlog_growth_df)
+                    st.dataframe(
+                        backlog_growth_df.style.apply(
+                            lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(backlog_growth_df)-1 else '' for _ in x],
+                            axis=1
+                        )
+                    )
                 else:
                     st.info(f"No incidents created on {selected_date.strftime('%Y-%m-%d')}.")
 
             st.header("Breached Incidents")
             breached_by_month_df = calculate_breached_incidents_by_month(incident_df)
             if not breached_by_month_df.empty:
-                st.table(breached_by_month_df)
+                st.dataframe(
+                    breached_by_month_df.style.apply(
+                        lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(breached_by_month_df)-1 else '' for _ in x],
+                        axis=1
+                    )
+                )
             else:
                 st.info("No open breached incidents found.")
 
             st.header("Incidents Status")
             status_pivot_df = calculate_incident_status_summary_with_totals(incident_df)
             if not status_pivot_df.empty:
-                st.table(status_pivot_df)
+                st.dataframe(status_pivot_df)
             else:
                 st.info("No incident status data to display.")
 
