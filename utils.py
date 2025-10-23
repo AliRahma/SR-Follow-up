@@ -1148,14 +1148,10 @@ def test_extract_approver_name():
 
 
 if __name__ == '__main__':
-    from test_daily_meeting_reports import test_calculate_daily_backlog_growth, test_calculate_breached_incidents_by_month, test_calculate_incident_status_summary_with_totals
     test_calculate_team_status_summary()
     test_case_count_calculation_and_filtering()
     test_calculate_srs_created_per_week()
     test_calculate_srs_created_and_closed_per_week()
     test_calculate_incidents_breached_per_week() # Correctly calling the test function
     test_extract_approver_name()
-    test_calculate_daily_backlog_growth()
-    test_calculate_breached_incidents_by_month()
-    test_calculate_incident_status_summary_with_totals()
     print("All utils.py tests passed successfully when run directly.")
