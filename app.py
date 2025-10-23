@@ -2569,7 +2569,10 @@ else:
                     detailed_incidents_df = incident_df[pd.to_datetime(incident_df['Created On'], errors='coerce').dt.date == selected_date]
                     if not detailed_incidents_df.empty:
                         all_columns = detailed_incidents_df.columns.tolist()
-                        selected_columns = st.multiselect("Select columns to display", all_columns, default=all_columns)
+                        default_cols = ['Incident', 'Status', 'Priority', 'Team', 'Source']
+                        # Ensure default columns exist in the dataframe
+                        final_default_cols = [col for col in default_cols if col in all_columns]
+                        selected_columns = st.multiselect("Select columns to display", all_columns, default=final_default_cols)
                         st.dataframe(detailed_incidents_df[selected_columns])
                     else:
                         st.info("No detailed incidents to display.")
@@ -2603,7 +2606,10 @@ else:
                     detailed_breached_df = incident_df[(incident_df['Is Breached']) & (incident_df['Status'].isin(open_statuses))]
                     if not detailed_breached_df.empty:
                         all_columns = detailed_breached_df.columns.tolist()
-                        selected_columns = st.multiselect("Select columns for breached incidents", all_columns, default=all_columns)
+                        default_cols = ['Incident', 'Status', 'Priority', 'Team', 'Source']
+                        # Ensure default columns exist in the dataframe
+                        final_default_cols = [col for col in default_cols if col in all_columns]
+                        selected_columns = st.multiselect("Select columns for breached incidents", all_columns, default=final_default_cols)
                         st.dataframe(detailed_breached_df[selected_columns])
                     else:
                         st.info("No detailed breached incidents to display.")
