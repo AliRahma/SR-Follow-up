@@ -2613,26 +2613,29 @@ else:
             if 'Team' in active_incidents.columns:
                 teams = sorted(active_incidents['Team'].dropna().unique())
 
-                for team in teams:
-                    st.subheader(f"Status for {team}")
-                    team_df = active_incidents[active_incidents['Team'] == team]
+                if teams:
+                    cols = st.columns(len(teams))
+                    for i, team in enumerate(teams):
+                        with cols[i]:
+                            st.subheader(f"Status for {team}")
+                            team_df = active_incidents[active_incidents['Team'] == team]
 
-                    if not team_df.empty:
-                        status_summary = team_df['Status'].value_counts().reset_index()
-                        status_summary.columns = ['Status', 'Count']
+                            if not team_df.empty:
+                                status_summary = team_df['Status'].value_counts().reset_index()
+                                status_summary.columns = ['Status', 'Count']
 
-                        # Add a 'Total' row
-                        total_row = pd.DataFrame([{'Status': 'Total', 'Count': status_summary['Count'].sum()}])
-                        status_summary_with_total = pd.concat([status_summary, total_row], ignore_index=True)
+                                # Add a 'Total' row
+                                total_row = pd.DataFrame([{'Status': 'Total', 'Count': status_summary['Count'].sum()}])
+                                status_summary_with_total = pd.concat([status_summary, total_row], ignore_index=True)
 
-                        st.dataframe(
-                            status_summary_with_total.style.apply(
-                                lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(status_summary_with_total)-1 else '' for _ in x],
-                                axis=1
-                            )
-                        )
-                    else:
-                        st.info(f"No active incidents to display for {team}.")
+                                st.dataframe(
+                                    status_summary_with_total.style.apply(
+                                        lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(status_summary_with_total)-1 else '' for _ in x],
+                                        axis=1
+                                    )
+                                )
+                            else:
+                                st.info(f"No active incidents to display for {team}.")
             else:
                 # Fallback for if 'Team' column doesn't exist
                 status_pivot_df = calculate_incident_status_summary_with_totals(incident_df)
@@ -2640,6 +2643,29 @@ else:
                     st.dataframe(status_pivot_df)
                 else:
                     st.info("No incident status data to display.")
+
+            st.markdown("---")
+            st.header("📋 Filtered Incident Details")
+            if not incident_df.empty:
+                all_columns = incident_df.columns.tolist()
+                default_cols = ["Incident", "Creator", "Team", "Priority", "Status"]
+
+                # Ensure default columns exist in the dataframe
+                default_selected_cols = [col for col in default_cols if col in all_columns]
+
+                selected_display_cols = st.multiselect(
+                    "Select columns to display:",
+                    options=all_columns,
+                    default=default_selected_cols,
+                    key="daily_meeting_incident_details_multiselect"
+                )
+
+                if selected_display_cols:
+                    st.dataframe(incident_df[selected_display_cols], use_container_width=True, hide_index=True)
+                else:
+                    st.info("Please select at least one column to display.")
+            else:
+                st.info("No incidents to display based on the current filters.")
 
 st.markdown("---")
 st.markdown(
