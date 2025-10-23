@@ -137,6 +137,9 @@ def calculate_team_status_summary(df: pd.DataFrame) -> pd.DataFrame:
         summarizing the count of incidents. Returns an empty DataFrame
         with these columns if 'Team' or 'Status' is missing in the input.
     """
+    if df.empty:
+        return pd.DataFrame(columns=['Team', 'Status', 'Total Incidents'])
+
     if 'Team' in df.columns and 'Status' in df.columns:
         summary_df = df.groupby(['Team', 'Status']).size().reset_index(name='Total Incidents')
     else:
