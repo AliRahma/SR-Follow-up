@@ -476,6 +476,9 @@ with st.sidebar:
                 overview_df = incident_df.copy()
                 if "Customer" in overview_df.columns:
                     overview_df.rename(columns={"Customer": "Creator"}, inplace=True)
+                elif "Creator" not in overview_df.columns:
+                    overview_df["Creator"] = "N/A" # Add a placeholder column if neither exists
+
                 # Attempt to parse 'Breach Date' right after loading incident_overview_df
                 if 'Breach Date' in overview_df.columns:
                     col_name = 'Breach Date'
@@ -1196,27 +1199,27 @@ else:
             case_details = {
                 "Field": ["Case ID", "Owner", "Start Date", "Age", "Ticket Number", "Type"],
                 "Value": [
-                    case_row['Case Id'],
-                    case_row['Current User Id'],
-                    case_row['Case Start Date'].strftime('%Y-%m-%d'),
+                    str(case_row['Case Id']),
+                    str(case_row['Current User Id']),
+                    str(case_row['Case Start Date'].strftime('%Y-%m-%d')),
                     f"{case_row['Age (Days)']} days",
-                    int(case_row['Ticket Number']) if not pd.isna(case_row['Ticket Number']) else 'N/A',
-                    case_row['Type'] if not pd.isna(case_row['Type']) else 'N/A'
+                    str(int(case_row['Ticket Number'])) if not pd.isna(case_row['Ticket Number']) else 'N/A',
+                    str(case_row['Type']) if not pd.isna(case_row['Type']) else 'N/A'
                 ]
             }
-            
+
             # Add Status if available
             if 'Status' in case_row and not pd.isna(case_row['Status']):
                 case_details["Field"].append("Status")
-                case_details["Value"].append(case_row['Status'])
-                
+                case_details["Value"].append(str(case_row['Status']))
+
                 if 'Last Update' in case_row and not pd.isna(case_row['Last Update']):
                     case_details["Field"].append("Last Update")
-                    case_details["Value"].append(case_row['Last Update'])
-                
+                    case_details["Value"].append(str(case_row['Last Update']))
+
                 if 'Breach Passed' in case_row:
                     case_details["Field"].append("SLA Breach")
-                    case_details["Value"].append("Yes ⚠️" if case_row['Breach Passed'] == True else "No")
+                    case_details["Value"].append("Yes ⚠️" if case_row['Breach Passed'] else "No")
             
             # Display as a table
             st.table(pd.DataFrame(case_details))
@@ -2543,31 +2546,67 @@ else:
                 if selected_teams:
                     incident_df = incident_df[incident_df['Team'].isin(selected_teams)]
 
-            st.header("📈 Ivanti Daily Backlog Growth")
-            selected_date = st.date_input("Select a date", datetime.now().date())
-            if selected_date:
-                backlog_growth_df = calculate_daily_backlog_growth(incident_df, selected_date)
-                if not backlog_growth_df.empty:
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.header("📈 Ivanti Daily Backlog Growth")
+                selected_date = st.date_input("Select a date", datetime.now().date())
+                if selected_date:
+                    backlog_growth_df = calculate_daily_backlog_growth(incident_df, selected_date)
+                    if not backlog_growth_df.empty:
+                        st.dataframe(
+                            backlog_growth_df.style.apply(
+                                lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(backlog_growth_df)-1 else '' for _ in x],
+                                axis=1
+                            )
+                        )
+                    else:
+                        st.info(f"No incidents created on {selected_date.strftime('%Y-%m-%d')}.")
+
+            with col2:
+                st.header("📋 Detailed Incidents")
+                if selected_date:
+                    detailed_incidents_df = incident_df[pd.to_datetime(incident_df['Created On'], errors='coerce').dt.date == selected_date]
+                    if not detailed_incidents_df.empty:
+                        all_columns = detailed_incidents_df.columns.tolist()
+                        selected_columns = st.multiselect("Select columns to display", all_columns, default=all_columns)
+                        st.dataframe(detailed_incidents_df[selected_columns])
+                    else:
+                        st.info("No detailed incidents to display.")
+
+            st.markdown("---")
+            col3, col4 = st.columns(2)
+
+            with col3:
+                st.header("🔥 Breached Incidents")
+                breached_by_month_df = calculate_breached_incidents_by_month(incident_df)
+                if not breached_by_month_df.empty:
                     st.dataframe(
-                        backlog_growth_df.style.apply(
-                            lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(backlog_growth_df)-1 else '' for _ in x],
+                        breached_by_month_df.style.apply(
+                            lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(breached_by_month_df)-1 else '' for _ in x],
                             axis=1
                         )
                     )
                 else:
-                    st.info(f"No incidents created on {selected_date.strftime('%Y-%m-%d')}.")
+                    st.info("No open breached incidents found.")
 
-            st.header("🔥 Breached Incidents")
-            breached_by_month_df = calculate_breached_incidents_by_month(incident_df)
-            if not breached_by_month_df.empty:
-                st.dataframe(
-                    breached_by_month_df.style.apply(
-                        lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(breached_by_month_df)-1 else '' for _ in x],
-                        axis=1
-                    )
-                )
-            else:
-                st.info("No open breached incidents found.")
+            with col4:
+                st.header("📋 Detailed Breached Incidents")
+                open_statuses = ['Open', 'In Progress', 'Pending', 'New']
+                if 'Breach Passed' in incident_df.columns and 'Status' in incident_df.columns:
+                    def map_breach_status(status):
+                        if isinstance(status, str):
+                            return 'yes' in status.lower() or 'passed' in status.lower()
+                        return bool(status)
+
+                    incident_df['Is Breached'] = incident_df['Breach Passed'].apply(map_breach_status)
+                    detailed_breached_df = incident_df[(incident_df['Is Breached']) & (incident_df['Status'].isin(open_statuses))]
+                    if not detailed_breached_df.empty:
+                        all_columns = detailed_breached_df.columns.tolist()
+                        selected_columns = st.multiselect("Select columns for breached incidents", all_columns, default=all_columns)
+                        st.dataframe(detailed_breached_df[selected_columns])
+                    else:
+                        st.info("No detailed breached incidents to display.")
 
             st.header("📊 Incidents Status")
             status_pivot_df = calculate_incident_status_summary_with_totals(incident_df)
