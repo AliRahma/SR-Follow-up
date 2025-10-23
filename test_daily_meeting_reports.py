@@ -13,7 +13,7 @@ def test_calculate_daily_backlog_growth():
 
     # Test for a date with data
     result = calculate_daily_backlog_growth(df, datetime(2023, 1, 1).date())
-    expected = pd.DataFrame({'Source': ['Email', 'Phone'], 'Count': [1, 1]})
+    expected = pd.DataFrame({'Source': ['Email', 'Phone', 'Total'], 'Count': [1, 1, 2]})
     pd.testing.assert_frame_equal(result, expected)
     print("  Test Case 1 (Date with data) Passed.")
 
@@ -39,7 +39,7 @@ def test_calculate_breached_incidents_by_month():
     df = pd.DataFrame(data)
 
     result = calculate_breached_incidents_by_month(df)
-    expected = pd.DataFrame({'Month': ['2023-01'], 'Count': [2]})
+    expected = pd.DataFrame({'Month': ['2023-01', 'Total'], 'Count': [2, 2]})
     pd.testing.assert_frame_equal(result, expected)
     print("  Test Case 1 (Basic functionality) Passed.")
 
@@ -55,25 +55,16 @@ def test_calculate_incident_status_summary_with_totals():
     """Tests for the calculate_incident_status_summary_with_totals function."""
     print("Running test_calculate_incident_status_summary_with_totals...")
     data = {
-        'Team': ['Team A', 'Team A', 'Team B'],
-        'Status': ['Open', 'Closed', 'Open']
+        'Team': ['Team A', 'Team A', 'Team B', 'Team C'],
+        'Status': ['Open', 'Closed', 'Open', 'Cancelled']
     }
     df = pd.DataFrame(data)
 
     result = calculate_incident_status_summary_with_totals(df)
-    expected_data = {
-        'Status': ['Closed', 'Open', 'Total'],
-        'Team A': [1, 1, 2],
-        'Team B': [0, 1, 1],
-        'Total': [1, 2, 3]
-    }
-    expected = pd.DataFrame(expected_data).set_index('Status')
-    expected.columns.name = 'Team'
-    # The pivot table will have columns as Status and index as Team, let's fix the test
+
     expected = pd.DataFrame(
-        {'Closed': {'Team A': 1, 'Team B': 0, 'Total': 1},
-         'Open': {'Team A': 1, 'Team B': 1, 'Total': 2},
-         'Total': {'Team A': 2, 'Team B': 1, 'Total': 3}}
+        {'Open': {'Team A': 1, 'Team B': 1, 'Total': 2},
+         'Total': {'Team A': 1, 'Team B': 1, 'Total': 2}}
     )
     expected.index.name = 'Team'
     expected.columns.name = 'Status'
