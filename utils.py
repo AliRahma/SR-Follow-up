@@ -1062,7 +1062,9 @@ def calculate_daily_backlog_growth(df, selected_date):
         df['Created On'] = pd.to_datetime(df['Created On'], errors='coerce')
         daily_backlog = df[df['Created On'].dt.date == selected_date]
         if not daily_backlog.empty:
-            return daily_backlog.groupby('Source').size().reset_index(name='Count')
+            backlog_counts = daily_backlog.groupby('Source').size().reset_index(name='Count')
+            total_row = pd.DataFrame([{'Source': 'Total', 'Count': backlog_counts['Count'].sum()}])
+            return pd.concat([backlog_counts, total_row], ignore_index=True)
     return pd.DataFrame(columns=['Source', 'Count'])
 
 def calculate_breached_incidents_by_month(df):
@@ -1085,12 +1087,15 @@ def calculate_breached_incidents_by_month(df):
                 open_breached_incidents['Month'] = open_breached_incidents['Breach Date'].dt.to_period('M')
                 breached_by_month = open_breached_incidents.groupby('Month').size().reset_index(name='Count')
                 breached_by_month['Month'] = breached_by_month['Month'].astype(str)
-                return breached_by_month
+                total_row = pd.DataFrame([{'Month': 'Total', 'Count': breached_by_month['Count'].sum()}])
+                return pd.concat([breached_by_month, total_row], ignore_index=True)
     return pd.DataFrame(columns=['Month', 'Count'])
 
 def calculate_incident_status_summary_with_totals(df):
     if 'Team' in df.columns and 'Status' in df.columns:
-        team_status_summary_df = calculate_team_status_summary(df)
+        # Exclude 'Closed' and 'Cancelled' statuses
+        active_incidents = df[~df['Status'].isin(['Closed', 'Cancelled'])]
+        team_status_summary_df = calculate_team_status_summary(active_incidents)
         if not team_status_summary_df.empty:
             status_pivot = pd.pivot_table(
                 team_status_summary_df,
