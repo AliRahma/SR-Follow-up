@@ -1100,8 +1100,8 @@ def calculate_incident_status_summary_with_totals(df):
             status_pivot = pd.pivot_table(
                 team_status_summary_df,
                 values='Total Incidents',
-                index='Team',
-                columns='Status',
+                index='Status',
+                columns='Team',
                 aggfunc='sum',
                 fill_value=0,
                 margins=True,

@@ -62,12 +62,14 @@ def test_calculate_incident_status_summary_with_totals():
 
     result = calculate_incident_status_summary_with_totals(df)
 
-    expected = pd.DataFrame(
-        {'Open': {'Team A': 1, 'Team B': 1, 'Total': 2},
-         'Total': {'Team A': 1, 'Team B': 1, 'Total': 2}}
-    )
-    expected.index.name = 'Team'
-    expected.columns.name = 'Status'
+    expected_data = {
+        'Team A': {'Open': 1, 'Total': 1},
+        'Team B': {'Open': 1, 'Total': 1},
+        'Total': {'Open': 2, 'Total': 2}
+    }
+    expected = pd.DataFrame(expected_data)
+    expected.index.name = 'Status'
+    expected.columns.name = 'Team'
 
     pd.testing.assert_frame_equal(result, expected, check_like=True)
     print("  Test Case 1 (Basic functionality) Passed.")
