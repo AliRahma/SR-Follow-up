@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest # Using pytest for better test structure if available, otherwise will use basic asserts
-# from utils import normalize_column_name, calculate_team_status_summary, calculate_srs_created_and_closed_per_week
+from utils import calculate_team_status_summary, calculate_srs_created_and_closed_per_week
 # Add other necessary imports from app.py if we were to test data loading directly
 
 # Test the normalization function itself
@@ -35,9 +35,9 @@ def test_data_loading_normalizes_columns():
 
 # Test utility functions that now expect normalized column names
 def test_calculate_team_status_summary_with_normalized_names():
-    # calculate_team_status_summary expects 'Team' and 'Status' (which normalize to 'team', 'status')
-    team_col_norm = normalize_column_name('Team')
-    status_col_norm = normalize_column_name('Status')
+    # calculate_team_status_summary expects 'Team' and 'Status'
+    team_col_norm = 'Team'
+    status_col_norm = 'Status'
 
     sample_data = {
         team_col_norm: ['Alpha', 'Alpha', 'Bravo', 'Alpha', 'Bravo', 'Charlie'],
@@ -55,9 +55,9 @@ def test_calculate_team_status_summary_with_normalized_names():
     assert summary[(summary['Team'] == 'Alpha') & (summary['Status'] == 'Open')]['Total Incidents'].iloc[0] == 2
 
 def test_calculate_srs_created_and_closed_per_week_with_normalized_names():
-    created_on_norm = normalize_column_name("Created On")
-    last_mod_dt_norm = normalize_column_name("LastModDateTime")
-    status_norm = normalize_column_name("Status")
+    created_on_norm = "Created On"
+    last_mod_dt_norm = "LastModDateTime"
+    status_norm = "Status"
 
     data = {
         created_on_norm: pd.to_datetime(['2023-01-01', '2023-01-02', '2023-01-08']),

@@ -2646,8 +2646,12 @@ else:
 
             st.markdown("---")
             st.header("📋 Filtered Incident Details")
-            if not incident_df.empty:
-                all_columns = incident_df.columns.tolist()
+
+            # Filter out closed and cancelled incidents for this table
+            active_incident_details_df = incident_df[~incident_df['Status'].isin(['Closed', 'Cancelled'])]
+
+            if not active_incident_details_df.empty:
+                all_columns = active_incident_details_df.columns.tolist()
                 default_cols = ["Incident", "Creator", "Team", "Priority", "Status"]
 
                 # Ensure default columns exist in the dataframe
@@ -2661,11 +2665,11 @@ else:
                 )
 
                 if selected_display_cols:
-                    st.dataframe(incident_df[selected_display_cols], use_container_width=True, hide_index=True)
+                    st.dataframe(active_incident_details_df[selected_display_cols], use_container_width=True, hide_index=True)
                 else:
                     st.info("Please select at least one column to display.")
             else:
-                st.info("No incidents to display based on the current filters.")
+                st.info("No active incidents to display based on the current filters.")
 
 st.markdown("---")
 st.markdown(
