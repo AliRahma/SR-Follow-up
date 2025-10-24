@@ -2592,7 +2592,7 @@ else:
 
             with col4:
                 st.header("📋 Detailed Breached Incidents")
-                open_statuses = ['Open', 'In Progress', 'Pending', 'New']
+                open_statuses = ['Open', 'In Progress', 'Pending', 'New','Waiting for Information - DIT','Waiting for Verification','Ready for deployment','Waiting for Deployment','Waiting for Verification – DIT']
                 if 'Breach Passed' in incident_df.columns and 'Status' in incident_df.columns:
                     def map_breach_status(status):
                         if isinstance(status, str):
