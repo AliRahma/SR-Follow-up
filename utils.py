@@ -1072,7 +1072,7 @@ def calculate_daily_backlog_growth(df, selected_date):
 
 def calculate_breached_incidents_by_month(df):
     if 'Breach Date' in df.columns and 'Status' in df.columns and 'Breach Passed' in df.columns:
-        open_statuses = ['Open', 'In Progress', 'Pending', 'New']
+        open_statuses = ['Open', 'In Progress', 'Pending', 'New','Waiting for Information - DIT','Waiting for Verification','Ready for deployment','Waiting for Deployment','Waiting for Verification – DIT']
 
         def map_breach_status(status):
             if isinstance(status, str):
