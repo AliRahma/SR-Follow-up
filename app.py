@@ -2554,12 +2554,7 @@ else:
                 if selected_date:
                     backlog_growth_df = calculate_daily_backlog_growth(incident_df, selected_date)
                     if not backlog_growth_df.empty:
-                        st.dataframe(
-                            backlog_growth_df.style.apply(
-                                lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(backlog_growth_df)-1 else '' for _ in x],
-                                axis=1
-                            )
-                        )
+                        st.dataframe(backlog_growth_df)
                     else:
                         st.info(f"No incidents created on {selected_date.strftime('%Y-%m-%d')}.")
 
