@@ -1061,28 +1061,18 @@ def test_calculate_incidents_breached_per_week():
     print("All test_calculate_incidents_breached_per_week tests passed.")
 
 def calculate_daily_backlog_growth(df, selected_date):
-    if 'Created On' in df.columns and 'Source' in df.columns and 'Status' in df.columns:
+    if 'Created On' in df.columns and 'Source' in df.columns:
         df['Created On'] = pd.to_datetime(df['Created On'], errors='coerce')
-        daily_backlog = df[df['Created On'].dt.date == selected_date].copy()
+        daily_backlog = df[df['Created On'].dt.date == selected_date]
         if not daily_backlog.empty:
-            # Create a pivot table with 'Source' as index, 'Status' as columns, and count of incidents as values
-            backlog_pivot = pd.pivot_table(
-                daily_backlog,
-                values='Incident',  # Use a column that uniquely identifies an incident, like 'Incident'
-                index='Source',
-                columns='Status',
-                aggfunc='count',
-                fill_value=0,
-                margins=True,      # Add row and column totals
-                margins_name='Total'
-            )
-            return backlog_pivot
-    # Return an empty DataFrame with appropriate columns if conditions are not met
-    return pd.DataFrame()
+            backlog_counts = daily_backlog.groupby('Source').size().reset_index(name='Count')
+            total_row = pd.DataFrame([{'Source': 'Total', 'Count': backlog_counts['Count'].sum()}])
+            return pd.concat([backlog_counts, total_row], ignore_index=True)
+    return pd.DataFrame(columns=['Source', 'Count'])
 
 def calculate_breached_incidents_by_month(df):
     if 'Breach Date' in df.columns and 'Status' in df.columns and 'Breach Passed' in df.columns:
-        open_statuses = ['Open', 'In Progress', 'Pending', 'New','Waiting for Information - DIT','Waiting for Verification','Ready for deployment','Waiting for Deployment','Waiting for Verification – DIT','Waiting for Information - Business']
+        open_statuses = ['Open', 'In Progress', 'Pending', 'New','Waiting for Information - DIT','Waiting for Verification','Ready for deployment','Waiting for Deployment','Waiting for Verification – DIT','Waiting for Information - Business','Resolved']
         def map_breach_status(status):
             if isinstance(status, str):
                 return 'yes' in status.lower() or 'passed' in status.lower()
