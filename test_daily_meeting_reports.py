@@ -7,19 +7,24 @@ def test_calculate_daily_backlog_growth():
     print("Running test_calculate_daily_backlog_growth...")
     data = {
         'Created On': [datetime(2023, 1, 1), datetime(2023, 1, 1), datetime(2023, 1, 2)],
-        'Source': ['Email', 'Phone', 'Email']
+        'Source': ['Email', 'Phone', 'Email'],
+        'Status': ['Open', 'Open', 'New'],
+        'Incident': ['INC001', 'INC002', 'INC003']
     }
     df = pd.DataFrame(data)
 
     # Test for a date with data
     result = calculate_daily_backlog_growth(df, datetime(2023, 1, 1).date())
-    expected = pd.DataFrame({'Source': ['Email', 'Phone', 'Total'], 'Count': [1, 1, 2]})
+    expected_data = {'Open': [1, 1, 2], 'Total': [1, 1, 2]}
+    expected = pd.DataFrame(expected_data, index=['Email', 'Phone', 'Total'])
+    expected.index.name = 'Source'
+    expected.columns.name = 'Status'
     pd.testing.assert_frame_equal(result, expected)
     print("  Test Case 1 (Date with data) Passed.")
 
     # Test for a date with no data
     result = calculate_daily_backlog_growth(df, datetime(2023, 1, 3).date())
-    expected = pd.DataFrame(columns=['Source', 'Count'])
+    expected = pd.DataFrame()
     pd.testing.assert_frame_equal(result, expected, check_dtype=False)
     print("  Test Case 2 (Date with no data) Passed.")
 
