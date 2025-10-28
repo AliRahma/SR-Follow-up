@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pytz
 from streamlit_option_menu import option_menu
 import plotly.express as px
-from utils import calculate_team_status_summary, calculate_srs_created_per_week, _get_week_display_str, extract_approver_name, calculate_daily_backlog_growth, calculate_breached_incidents_by_month, calculate_incident_status_summary_with_totals
+from utils import calculate_team_status_summary, calculate_srs_created_per_week, _get_week_display_str, extract_approver_name, calculate_daily_backlog_growth, calculate_breached_incidents_by_month, calculate_incident_status_summary_with_totals, calculate_team_progress
 
 # Set page configuration
 st.set_page_config(
@@ -2670,6 +2670,39 @@ else:
                     st.info("Please select at least one column to display.")
             else:
                 st.info("No active incidents to display based on the current filters.")
+
+            st.markdown("---")
+            st.header("Team Progress")
+
+            team_progress_col1, team_progress_col2 = st.columns(2)
+
+            with team_progress_col1:
+                prog_start_date = st.date_input("Start date", datetime.now().date() - timedelta(days=7))
+
+            with team_progress_col2:
+                prog_end_date = st.date_input("End date", datetime.now().date())
+
+            if 'Last Check By' in incident_df.columns:
+                all_members = sorted(incident_df['Last Check By'].dropna().unique())
+                default_members = ["Anas Hasan Alrefai", "Alharith Saad Alfki", "Ali Rahamtalla Ali Babiker", "Hadeel Salah Hmdnallah"]
+
+                selected_members = st.multiselect(
+                    "Select Members",
+                    options=all_members,
+                    default=[member for member in default_members if member in all_members]
+                )
+
+                if prog_start_date and prog_end_date:
+                    team_progress_df = calculate_team_progress(incident_df, prog_start_date, prog_end_date, selected_members)
+                    if not team_progress_df.empty:
+                        st.dataframe(
+                            team_progress_df.style.apply(
+                                lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(team_progress_df)-1 else '' for _ in x],
+                                axis=1
+                            )
+                        )
+                    else:
+                        st.info("No team progress data to display for the selected date range and members.")
 
 st.markdown("---")
 st.markdown(
