@@ -2695,12 +2695,43 @@ else:
                 if prog_start_date and prog_end_date:
                     team_progress_df = calculate_team_progress(incident_df, prog_start_date, prog_end_date, selected_members)
                     if not team_progress_df.empty:
-                        st.dataframe(
-                            team_progress_df.style.apply(
-                                lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(team_progress_df)-1 else '' for _ in x],
-                                axis=1
+                        # Separate the total row from the data rows
+                        total_row = team_progress_df[team_progress_df['Last Check By'] == 'Total']
+                        data_rows = team_progress_df[team_progress_df['Last Check By'] != 'Total']
+
+                        # Add 'Intellipen Cases' column to data rows, initialized with 0
+                        data_rows['Intellipen Cases'] = 0
+
+                        # Display the editable dataframe for data rows
+                        st.write("Edit Intellipen Cases:")
+                        edited_df = st.data_editor(data_rows)
+
+                        if edited_df is not None:
+                            # Calculate the 'Total' column
+                            edited_df['Total'] = edited_df['Ivanti Incidents'] + edited_df['Intellipen Cases']
+
+                            # Recalculate the 'Total' row
+                            total_ivanti = edited_df['Ivanti Incidents'].sum()
+                            total_intellipen = edited_df['Intellipen Cases'].sum()
+                            total_total = edited_df['Total'].sum()
+
+                            new_total_row = pd.DataFrame([{
+                                'Last Check By': 'Total',
+                                'Ivanti Incidents': total_ivanti,
+                                'Intellipen Cases': total_intellipen,
+                                'Total': total_total
+                            }])
+
+                            # Combine edited data with the new total row
+                            final_df = pd.concat([edited_df, new_total_row], ignore_index=True)
+
+                            # Display the final dataframe with styling
+                            st.dataframe(
+                                final_df.style.apply(
+                                    lambda x: ['background-color: #bbdefb; font-weight: bold' if x.name == len(final_df)-1 else '' for _ in x],
+                                    axis=1
+                                )
                             )
-                        )
                     else:
                         st.info("No team progress data to display for the selected date range and members.")
 
