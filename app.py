@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pytz
 from streamlit_option_menu import option_menu
 import plotly.express as px
-from utils import calculate_team_status_summary, calculate_srs_created_per_week, _get_week_display_str, extract_approver_name, calculate_daily_backlog_growth, calculate_breached_incidents_by_month, calculate_incident_status_summary_with_totals, calculate_team_progress
+from utils import calculate_team_status_summary, calculate_srs_created_per_week, _get_week_display_str, extract_approver_name, calculate_daily_backlog_growth, calculate_breached_incidents_by_month, calculate_incident_status_summary_with_totals
 
 # Set page configuration
 st.set_page_config(
