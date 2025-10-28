@@ -2684,7 +2684,7 @@ else:
 
             if 'Last Check By' in incident_df.columns:
                 all_members = sorted(incident_df['Last Check By'].dropna().unique())
-                default_members = ["Anas Hasan Alrefai", "Alharith Saad Alfki", "Ali Rahamtalla Ali Babiker", "Hadeel Salah Hmdnallah"]
+                default_members = ["Anas Hasan  Alrefai", "Alharith Saad Alfki", "Ali Rahamtalla Ali Babiker", "Hadeel Salah Hmdnallah"]
 
                 selected_members = st.multiselect(
                     "Select Members",
