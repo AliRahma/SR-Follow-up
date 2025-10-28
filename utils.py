@@ -1167,11 +1167,11 @@ def calculate_team_progress(df, start_date, end_date, members):
             filtered_df = filtered_df[filtered_df['Last Check By'].isin(members)]
 
         if not filtered_df.empty:
-            progress_counts = filtered_df.groupby('Last Check By').size().reset_index(name='Count')
-            total_row = pd.DataFrame([{'Last Check By': 'Total', 'Count': progress_counts['Count'].sum()}])
+            progress_counts = filtered_df.groupby('Last Check By').size().reset_index(name='Ivanti Incidents')
+            total_row = pd.DataFrame([{'Last Check By': 'Total', 'Ivanti Incidents': progress_counts['Ivanti Incidents'].sum()}])
             return pd.concat([progress_counts, total_row], ignore_index=True)
 
-    return pd.DataFrame(columns=['Last Check By', 'Count'])
+    return pd.DataFrame(columns=['Last Check By', 'Ivanti Incidents'])
 
 
 if __name__ == '__main__':
