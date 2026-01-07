@@ -365,13 +365,13 @@ def classify_and_extract(note):
     
     note_lower = note.lower()
     # Enhanced regex pattern to catch more variations
-    match = re.search(r'(Business Application|tkt|sr|inc|ticket|مرجعي|incident|اس ار|انسدنت)[\s\S]{0,50}?(\d{4,})', note_lower)
+    match = re.search(r'(Request|tkt|sr|inc|ticket|مرجعي|incident|اس ار|انسدنت)[\s\S]{0,50}?(\d{4,})', note_lower)
         
     if match:
         ticket_num = int(match.group(2))
         ticket_keyword = match.group(1).lower()
 
-        sr_keywords = ['sr', 'مرجعي', 'اس ار','Business Application']
+        sr_keywords = ['sr', 'مرجعي', 'اس ار','Request']
 
         ticket_type = "SR" if ticket_keyword in sr_keywords else "Incident"
         return "Pending SR/Incident", ticket_num, ticket_type
