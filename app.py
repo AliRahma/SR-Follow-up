@@ -1521,10 +1521,6 @@ else:
     elif selected == "Incident Overview":
         st.title("📋 Incident Overview")
 
-        # Define PAP category specifics early to ensure they are in scope
-        pap_category_column = 'Category'
-        pap_category_value = 'Pension Application Platform (PAP)'
-
         SELECT_ALL_BASE_STRING = "[Select All %s]"
 
         if 'incident_overview_df' not in st.session_state or st.session_state.incident_overview_df is None or st.session_state.incident_overview_df.empty:
@@ -2000,7 +1996,7 @@ else:
                     # Category filter logic removed here
 
                     # Update the count message after all filters
-                    st.markdown(f"Displaying **{len(filtered_detailed_breached_incidents_df)}** '{pap_category_value}' breached incidents based on current filters.")
+                    st.markdown(f"Displaying **{len(filtered_detailed_breached_incidents_df)}** breached incidents based on current filters.")
 
 
                     all_breached_incident_columns = filtered_detailed_breached_incidents_df.columns.tolist() # This will include 'Year-Week' if present
@@ -2079,24 +2075,16 @@ else:
 
                 # This 'else' correctly corresponds to 'if not displayable_breached_incidents_df.empty:'
                 else:
-                    st.info(f"No '{pap_category_value}' incidents with a valid breach date found to display details (after week/day filters or initially).")
+                    st.info("No incidents with a valid breach date found to display details (after week/day filters or initially).")
 
-            # This 'else' correctly corresponds to 'if 'Breach Date' in pap_incidents_df.columns:'
-            # (or rather, the derived working_df_for_detailed_table)
+            # This 'else' correctly corresponds to 'if 'Breach Date' in detailed_breach_source_df.columns:'
             else:
-                st.warning(f"The 'Breach Date' column is missing in the filtered '{pap_category_value}' incident data. Cannot display detailed breached incidents.")
+                st.warning("The 'Breach Date' column is missing in the incident data. Cannot display detailed breached incidents.")
 
-        # This 'elif' and 'else' handle cases where pap_incidents_df itself was empty from the start
-        elif not pap_incidents_df.empty and 'Breach Date' not in pap_incidents_df.columns:
-             st.warning(f"The 'Breach Date' column is missing from '{pap_category_value}' incidents. Cannot display detailed breaches.")
-        else: # pap_incidents_df is empty
-            # Check original source only if pap_incidents_df is empty
+        else: # incident data is missing or empty
+            # Check original source only if incident data is missing or empty
             if 'incident_overview_df' not in st.session_state or st.session_state.incident_overview_df is None or st.session_state.incident_overview_df.empty:
                 st.info("Incident data not loaded or empty. Please upload incident data to see detailed breached incidents.")
-            # else: specific messages about why pap_incidents_df is empty (no PAP, or Category col missing) were shown earlier
-            # We can add a generic one here if needed for the detailed table context.
-            # elif not (st.session_state.incident_overview_df[pap_category_column].astype(str).str.strip().str.lower() == pap_category_value.strip().lower()).any():
-            #    st.info(f"No incidents of category '{pap_category_value}' found to display details.")
 
 
         st.markdown("---") # Visual separator
