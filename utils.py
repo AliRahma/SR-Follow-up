@@ -70,7 +70,12 @@ def generate_excel_download(data, sheet_name='Results'):
             worksheet.write(0, col_num, value, header_format)
 
         for i, col in enumerate(data.columns):
-            column_width = max(data[col].astype(str).apply(len).max(), len(str(col))) + 2
+            if not data[col].empty and data[col].notnull().any():
+                col_max_len = data[col].dropna().astype(str).map(len).max()
+                column_width = max(col_max_len, len(str(col))) + 2
+            else:
+                column_width = len(str(col)) + 2
+
             if column_width > 50: # Cap max width
                 column_width = 50
             worksheet.set_column(i, i, column_width)

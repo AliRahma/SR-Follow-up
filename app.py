@@ -415,7 +415,17 @@ def generate_excel_download(data):
             
         # Auto-adjust columns' width
         for i, col in enumerate(data.columns):
-            max_len = max(data[col].astype(str).apply(len).max(), len(str(col))) + 1
+            # Check if column has any data before calculating max length to avoid errors on empty/null columns
+            if not data[col].empty and data[col].notnull().any():
+                # Cast to string and apply len, handling potential Arrow/dtype issues by ensuring string conversion
+                col_max_len = data[col].dropna().astype(str).map(len).max()
+                max_len = max(col_max_len, len(str(col))) + 1
+            else:
+                max_len = len(str(col)) + 1
+
+            # Cap max length to a reasonable value
+            if max_len > 50:
+                max_len = 50
             worksheet.set_column(i, i, max_len)
     
     output.seek(0)
