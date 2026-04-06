@@ -339,7 +339,7 @@ def process_main_df(df):
     if 'Case Id' in df.columns:
         initial_rows = len(df)
         # Use inplace=False to return a new DataFrame, which is safer.
-        df = df.drop_duplicates(subset=['Case Id'], keep='last')
+        df = df.drop_duplicates(subset=['Case Id'], keep='last').copy()
         rows_dropped = initial_rows - len(df)
         if rows_dropped > 0:
             print(f"--- INFO: Dropped {rows_dropped} duplicate cases based on 'Case Id'. ---")
