@@ -537,7 +537,7 @@ def calculate_srs_created_and_closed_per_week(df: pd.DataFrame) -> pd.DataFrame:
     # --- SRs Created ---
     df_created = df.copy()
     initial_created_count = len(df_created)
-    df_created['Created On'] = pd.to_datetime(df_created['Created On'], errors='coerce', dayfirst=True, infer_datetime_format=True)
+    df_created['Created On'] = pd.to_datetime(df_created['Created On'], errors='coerce', dayfirst=True)
     df_created.dropna(subset=['Created On'], inplace=True)
     parsed_created_count = len(df_created)
     if initial_created_count > 0 and parsed_created_count < initial_created_count * 0.8: # Example: if more than 20% failed
@@ -564,7 +564,7 @@ def calculate_srs_created_and_closed_per_week(df: pd.DataFrame) -> pd.DataFrame:
     df_closed = df_closed[df_closed['Status_normalized'].isin(closed_statuses_normalized)]
     
     initial_closed_count = len(df_closed) # Count after filtering by normalized status
-    df_closed['LastModDateTime'] = pd.to_datetime(df_closed['LastModDateTime'], errors='coerce', dayfirst=True, infer_datetime_format=True)
+    df_closed['LastModDateTime'] = pd.to_datetime(df_closed['LastModDateTime'], errors='coerce', dayfirst=True)
     df_closed.dropna(subset=['LastModDateTime'], inplace=True)
     parsed_closed_count = len(df_closed)
     if initial_closed_count > 0 and parsed_closed_count < initial_closed_count * 0.8: # Example: if more than 20% failed
