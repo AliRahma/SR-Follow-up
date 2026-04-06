@@ -348,8 +348,9 @@ def process_main_df(df):
     date_columns = ['Case Start Date', 'Last Note Date']
     for col in date_columns:
         if col in df.columns:
-            # Use .loc to avoid SettingWithCopyWarning
-            df.loc[:, col] = pd.to_datetime(df[col], format="%d/%m/%Y", errors='coerce')
+            # Explicitly cast column to object before datetime conversion to avoid dtype incompatibility
+            df[col] = df[col].astype(object)
+            df[col] = pd.to_datetime(df[col], format="%d/%m/%Y", errors='coerce')
     
     # Extract all unique users
     if 'Current User Id' in df.columns:
@@ -2402,7 +2403,7 @@ else:
                     ].copy()
 
                     # Convert LastModDateTime to datetime and generate 'Closure-Year-Week'
-                    closed_srs_df['LastModDateTime'] = pd.to_datetime(closed_srs_df['LastModDateTime'], errors='coerce', dayfirst=True, infer_datetime_format=True)
+                    closed_srs_df['LastModDateTime'] = pd.to_datetime(closed_srs_df['LastModDateTime'], errors='coerce', dayfirst=True)
                     closed_srs_df.dropna(subset=['LastModDateTime'], inplace=True) # Remove rows where LastModDateTime couldn't be parsed
 
                     if not closed_srs_df.empty:
